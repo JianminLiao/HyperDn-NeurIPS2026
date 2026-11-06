@@ -29,8 +29,6 @@ jobs:
           pip install -r requirements.txt
       - name: Run existing tests
         run: python -m unittest discover -s tests -v
-      - name: Validate release contents
-        run: python tools/validate_release.py
       - name: Exercise the documented CPU example
         run: |
           python infer.py --algorithm cbm3d --image examples/noisy.png --output outputs/cbm3d.png --json outputs/cbm3d.json

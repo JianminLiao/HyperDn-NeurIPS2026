@@ -1,79 +1,76 @@
+<div align="center">
+
 # HyperDn
 
 ### Oracle Supervision Transfers for Hyperparameter Prediction in Model-Based Image Denoising
 
-**NeurIPS 2026** · Jianmin Liao, Lixin Shen, and Yuesheng Xu
+**Jianmin Liao · Lixin Shen · Yuesheng Xu**
 
-[Paper](https://openreview.net/forum?id=vXGWG7Z20k) · [Quick start](#quick-start) · [Training](#training-and-few-shot-transfer) · [Data](docs/data.md) · [Citation](#citation)
+NeurIPS 2026
 
-**Reuse oracle supervision from related denoising problems to predict hyperparameters with fewer target labels.**
+[![Paper](https://img.shields.io/badge/Paper-OpenReview-8c1b13.svg)](https://openreview.net/forum?id=vXGWG7Z20k) [![CPU checks](https://github.com/JianminLiao/HyperDn-NeurIPS2026/actions/workflows/checks.yml/badge.svg)](https://github.com/JianminLiao/HyperDn-NeurIPS2026/actions/workflows/checks.yml) [![Code license: MIT](https://img.shields.io/badge/Code-MIT-blue.svg)](LICENSE) [![Weights license: CC BY-NC 4.0](https://img.shields.io/badge/Weights-CC%20BY--NC%204.0-lightgrey.svg)](THIRD_PARTY_NOTICES.md)
 
-HyperDn takes a noisy image and information about the denoising task, then predicts its hyperparameters. It pools oracle supervision across TV/TGV source configurations and transfers the learned predictor to new denoisers. This release includes source pretraining, DiffPIR WED/PSNR and CBM3D few-shot training and evaluation, both comparison methods, and pretrained seed43 models.
+</div>
 
-![HyperDn architecture: image and task information feed a shared hyperparameter predictor.](docs/figures/architecture.png)
+<p align="center">
+  <img src="docs/figures/overview.png" width="92%" alt="HyperDn pools oracle labels from source configurations and predicts hyperparameters for new denoisers, noise mixtures, resolutions, and image domains.">
+</p>
 
-## Quick start
+Choosing hyperparameters for a model-based denoiser usually means building an oracle-labeled training set for every new configuration. **HyperDn** is a single configuration-conditioned predictor that pools oracle supervision across source configurations (TV/TGV solvers under different noise models) and reuses it for new denoisers and noise settings with few or no target labels.
 
-Use Python 3.12 and run commands from the repository root.
+- **Few-shot transfer to a new denoiser.** From TV/TGV sources to diffusion-based DiffPIR, HyperDn uses 2 target labels for predictor fitting (after a shared configuration calibration), comes within 0.90 dB of the oracle, and matches the 64-label Afkham et al. baseline trained from scratch. Transfer also holds for SSIM and LPIPS oracle labels, and for NLM and CBM3D.
+- **Zero-shot transfer.** Without target oracle labels, HyperDn reaches near-oracle PSNR on unseen mixtures of seen noise types, on images up to about 1024×768 after training mostly on 96×96 images, and under a joint shift in image domain and diffusion prior.
+
+<p align="center">
+  <img src="docs/figures/fewshot_diffpir.png" width="62%" alt="Few-shot DiffPIR transfer: test PSNR against the number of labeled DiffPIR training images for HyperDn, ImageNet initialization, and the target-only Afkham baseline.">
+  <br>
+  <em>Few-shot DiffPIR transfer on WED 256×256 crops: mean test PSNR (±std) vs. target labels; oracle&nbsp;31.13&nbsp;dB.</em>
+</p>
+
+## Installation
 
 ```bash
 git clone https://github.com/JianminLiao/HyperDn-NeurIPS2026.git
 cd HyperDn-NeurIPS2026
-python -m venv .venv
+python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-CPU inference is supported. CUDA is recommended for training and DiffPIR.
+Inference runs on CPU. A CUDA GPU is recommended for training and for DiffPIR.
 
-Predict a CBM3D parameter and denoise the included synthetic example on CPU:
+## Quick start
+
+Predict the CBM3D parameter for the included synthetic noisy image and denoise it:
 
 ```bash
 python infer.py --algorithm cbm3d --image examples/noisy.png \
   --output outputs/cbm3d.png --json outputs/cbm3d.json
 ```
 
-The command prints the predicted parameter and saves the restored image. The example is a generated test input, not a paper benchmark. Replace `examples/noisy.png` with your own noisy RGB image.
+The command prints the predicted parameter and saves the restored image. Replace `examples/noisy.png` with your own noisy RGB image. The predictor is told the noise type (Gaussian) but needs neither the noise level nor a clean reference.
 
-Predict the DiffPIR parameter without downloading its diffusion prior:
+Predict the DiffPIR parameter (no diffusion prior needed for prediction only):
 
 ```bash
 python infer.py --algorithm diffpir --image examples/noisy.png
 ```
 
-The predictor uses the Gaussian noise category, with no noise-level input or clean reference image.
-
 ## Pretrained models
 
-All three models use seed43. The target models use two training labels.
-The checkpoints are included in the repository; their provenance and hashes are recorded in [weight_manifest.json](weight_manifest.json).
+The checkpoints are included in the repository. The target models were adapted with two target labels.
 
-| Model | Checkpoint |
-|---|---|
-| Source pretrained | `checkpoints/hyperdn_source_s43.pt` |
-| DiffPIR, WED/PSNR | `checkpoints/hyperdn_diffpir_2shot_s43.pt` |
-| CBM3D | `checkpoints/hyperdn_cbm3d_2shot_s43.pt` |
+| Model | Checkpoint | Output |
+|---|---|---|
+| Source pretrained | `checkpoints/hyperdn_source_s43.pt` | TV/TGV source configurations |
+| DiffPIR (WED, PSNR) | `checkpoints/hyperdn_diffpir_2shot_s43.pt` | `lambda_eff = lambda_cache · sigma²`, with `zeta = 1` |
+| CBM3D | `checkpoints/hyperdn_cbm3d_2shot_s43.pt` | `sigma_psd` in `[0, 1]` image units, clipped to `[0.003, 0.30]` |
 
-## Inference
+`infer.py` loads the matching checkpoint by default. Use `--checkpoint PATH` to load another one.
 
-Predict a parameter from a noisy RGB image:
+## Denoising with DiffPIR
 
-```bash
-python infer.py --algorithm diffpir --image noisy.png
-python infer.py --algorithm cbm3d --image noisy.png
-```
-
-Add `--output` to save the denoised image and `--json` to save its parameters:
-
-```bash
-python infer.py --algorithm cbm3d --image noisy.png --output restored.png --json parameters.json
-```
-
-Use `--checkpoint PATH` for another model. DiffPIR outputs the effective coefficient
-`lambda_eff = lambda_cache * sigma^2`, which is passed directly to the executor;
-`zeta=1`. CBM3D outputs `sigma_psd` in `[0,1]` image units, clipped to `[0.003,0.30]`.
-
-For DiffPIR denoising, install the external solver and download its prior:
+Parameter prediction works out of the box. To also run DiffPIR, install the official solver and its ImageNet prior (about 2.1 GiB):
 
 ```bash
 git clone https://github.com/yuanzhi-zhu/DiffPIR.git external/DiffPIR_official
@@ -81,95 +78,81 @@ git -C external/DiffPIR_official checkout 2a9898129a1b274131b98746e5b364bc20adc1
 mkdir -p external/DiffPIR_official/model_zoo
 curl -fL https://openaipublic.blob.core.windows.net/diffusion/jul-2021/256x256_diffusion_uncond.pt \
   -o external/DiffPIR_official/model_zoo/256x256_diffusion_uncond.pt
+```
+
+Then denoise a 256×256 RGB image (100 iterations by default):
+
+```bash
 python infer.py --algorithm diffpir --image noisy256.png --device cuda --output restored.png
 ```
 
-The prior is about 2.1 GiB; SHA-256:
-`a37c32fffd316cd494cf3f35b339936debdc1576dad13fe57c42399a5dbc78b1`.
-DiffPIR uses 256×256 RGB inputs and 100 iterations. Optional flags:
-`--diffpir-root`, `--diffpir-prior`, `--diffpir-device`, `--seed`.
+Other options: `--diffpir-root`, `--diffpir-prior`, `--diffpir-device`, `--diffpir-iterations`, and `--seed`.
 
 ## Training and few-shot transfer
 
-| Task | Entry point | Inputs |
-|---|---|---|
-| Source pretraining | `run_fullcorpus_kendall_5seed.py` | STL10/WED images and source label banks |
-| DiffPIR WED/PSNR transfer | `run_expc_fullcorpus_kendall.py` | WED images, DiffPIR labels, source checkpoint, external solver/prior |
-| CBM3D transfer | `run_expc_cbm3d_unknown.py` | WED images, CBM3D labels, source checkpoint |
-| Optional target oracle search | `scripts/generate_oracles.py` | Images and the corresponding denoiser; see [data instructions](docs/data.md#target-oracle-generation) |
-
-Prepare the STL-10/WED images using [docs/data.md](docs/data.md), then extract the
-included oracle labels:
+**1. Prepare data.** Download STL-10 and the Waterloo Exploration Database (WED) as described in [docs/data.md](docs/data.md), then unpack the included oracle labels:
 
 ```bash
 python scripts/prepare_labels.py
 ```
 
-Source pretraining reads the supplied labels. To train the source model:
+**2. Source pretraining** on the pooled TV/TGV oracle labels. You can skip this step and adapt the released source checkpoint directly.
 
 ```bash
 python run_fullcorpus_kendall_5seed.py
 ```
 
-Source training runs for 80 epochs with configuration-homogeneous batches of 128;
-incomplete batches are dropped. The released source checkpoint can also be used
-directly for target adaptation.
-
-Run the DiffPIR WED/PSNR and CBM3D experiments:
+**3. Few-shot transfer** to DiffPIR and CBM3D:
 
 ```bash
-python run_expc_fullcorpus_kendall.py
-python run_expc_cbm3d_unknown.py
+python run_expc_fullcorpus_kendall.py   # DiffPIR, WED/PSNR
+python run_expc_cbm3d_unknown.py        # CBM3D
 ```
 
-Both default to seed43, methods `ours,imagenet_only,afkham`, and label budgets
-`1,2,4,16,32,64,128`. To run only two-shot HyperDn:
+By default, each script runs seed 43 for HyperDn, ImageNet initialization, and the target-only Afkham et al. baseline with 1, 2, 4, 16, 32, 64, and 128 target labels. To train or evaluate only two-shot HyperDn:
 
 ```bash
 EXPC_METHODS=ours EXPC_SHOTS=2 python run_expc_fullcorpus_kendall.py
 CBM3D_METHODS=ours CBM3D_SHOTS=2 python run_expc_cbm3d_unknown.py
 ```
 
-Set `EXPC_ONLY_EVAL=1` or `CBM3D_ONLY_EVAL=1` with these commands to evaluate the
-released two-shot checkpoints. Select other seeds with `FC_SEEDS`, `EXPC_SEEDS`,
-or `CBM3D_SEEDS` (comma-separated); adaptation requires matching source models.
-Set `FC_OUTPUT_ROOT`, `EXPC_OUTPUT_ROOT`, or `CBM3D_OUTPUT_ROOT` to change output
-locations. Use a new output directory when changing training settings.
+<details>
+<summary>More options</summary>
 
-Despite its filename, `run_fullcorpus_kendall_5seed.py` also defaults to seed43. For example, set `FC_SEEDS=42,43,44,45,46` to train five source models.
+| Variable | Effect |
+|---|---|
+| `EXPC_ONLY_EVAL=1`, `CBM3D_ONLY_EVAL=1` | Evaluate saved checkpoints, including the released two-shot models |
+| `FC_SEEDS`, `EXPC_SEEDS`, `CBM3D_SEEDS` | Comma-separated seeds, e.g. `42,43,44,45,46`; adaptation needs a source model for each seed |
+| `FC_OUTPUT_ROOT`, `EXPC_OUTPUT_ROOT`, `CBM3D_OUTPUT_ROOT` | Output directories; use a new one when changing settings |
 
-HyperDn and ImageNet init use 150 target epochs and the final checkpoint. Afkham
-uses 500 epochs for budgets 1–2 and 100 otherwise. Evaluation uses 50 WED
-validation images. DiffPIR summaries use sample SD; CBM3D uses population SD.
+Evaluation uses 50 WED validation images. Target oracle labels are included; [docs/data.md](docs/data.md#target-oracle-generation) explains how to regenerate them with `scripts/generate_oracles.py`.
 
-## Checks
+</details>
 
-```bash
-python -m unittest discover -s tests -v
-python tools/validate_release.py
-```
+## Architecture
 
-These commands run the existing CPU tests and verify the release files, checkpoint loading, and oracle-label checksums. [release_manifest.json](release_manifest.json) lists the files; [SHA256SUMS](SHA256SUMS) records their hashes.
+<p align="center">
+  <img src="docs/figures/architecture.png" width="92%" alt="HyperDn architecture: a truncated ConvNeXtV2 image encoder and a condition encoder feed a shared prediction head with denoiser-calibrated slot readout.">
+</p>
 
-The Python code, configurations, label banks, and weights are identical to the selected NeurIPS supplementary package. This repository adds the paper homepage, citation metadata, architecture figure, synthetic example, and automated checks. See [release provenance](docs/release.md).
+A truncated ConvNeXtV2 encoder extracts features from the degraded image. A condition encoder embeds the denoiser (prior and data term) and, when available, the noise type and observation metadata. A shared prediction head reads out the hyperparameters of the queried configuration.
 
 ## Citation
 
 ```bibtex
 @inproceedings{liao2026oracle,
-  title = {Oracle Supervision Transfers for Hyperparameter Prediction in Model-Based Image Denoising},
-  author = {Liao, Jianmin and Shen, Lixin and Xu, Yuesheng},
+  title     = {Oracle Supervision Transfers for Hyperparameter Prediction in Model-Based Image Denoising},
+  author    = {Liao, Jianmin and Shen, Lixin and Xu, Yuesheng},
   booktitle = {Advances in Neural Information Processing Systems},
-  year = {2026},
-  url = {https://openreview.net/forum?id=vXGWG7Z20k}
+  year      = {2026},
+  url       = {https://openreview.net/forum?id=vXGWG7Z20k}
 }
 ```
 
 ## License and acknowledgments
 
-Code: [MIT](LICENSE). Pretrained weights: CC BY-NC 4.0.
-See [third-party notices](THIRD_PARTY_NOTICES.md).
+The code is released under the [MIT license](LICENSE). The pretrained weights derive from ConvNeXt V2 and are released under CC BY-NC 4.0; see [third-party notices](THIRD_PARTY_NOTICES.md).
 
-We thank the authors of [ConvNeXt V2](https://github.com/facebookresearch/ConvNeXt-V2), [timm](https://github.com/huggingface/pytorch-image-models), [DiffPIR](https://github.com/yuanzhi-zhu/DiffPIR), and the CBM3D software for their released tools and models.
+We thank the authors of [ConvNeXt V2](https://github.com/facebookresearch/ConvNeXt-V2), [timm](https://github.com/huggingface/pytorch-image-models), [DiffPIR](https://github.com/yuanzhi-zhu/DiffPIR), and [BM3D](https://pypi.org/project/bm3d/) for releasing their code and models.
 
-For questions about the implementation, please open a GitHub issue.
+Questions about the code are welcome as [GitHub issues](https://github.com/JianminLiao/HyperDn-NeurIPS2026/issues).
