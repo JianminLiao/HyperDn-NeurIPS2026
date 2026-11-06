@@ -1,0 +1,129 @@
+{
+  "format": "hyperdn_original_label_banks_v1",
+  "banks": [
+    {
+      "id": "source_01",
+      "path": "dataset_labels/foundation_bw_impulse_gaussian_tv_huberdata_stl10_train_s1_20260413_impulse_fix_s1_merged.pt",
+      "bytes": 2739545,
+      "sha256": "a17e2f6894d4f517b883bc555f686024497254ea4c2a62a71b8801781c96a78c",
+      "record_count": 5000
+    },
+    {
+      "id": "source_02",
+      "path": "dataset_labels/foundation_bw_impulse_huber_tgv_stl10_train_s1_20260413_tgv_v3_merged.pt",
+      "bytes": 2665441,
+      "sha256": "0e61e5b121d5e58e5ce288efe4e38e7396bd38531706091b73113e13a9e73a7d",
+      "record_count": 5000
+    },
+    {
+      "id": "source_03",
+      "path": "dataset_labels/foundation_bw_impulse_tv_huberdata_stl10_train_s1_20260413_impulse_fix_s1_merged.pt",
+      "bytes": 2509027,
+      "sha256": "d08b2575c3f029e3d7c29c18112c60e864b0e26e075168479ca5257e1d23d263",
+      "record_count": 5000
+    },
+    {
+      "id": "source_04",
+      "path": "dataset_labels/foundation_gaussian_huber_tgv_stl10_train_s1_20260413_tgv_v3_merged.pt",
+      "bytes": 2410517,
+      "sha256": "260df89120217fbbf777e4f2d39efab7c84f84bcf66dc939873e113cc54737d7",
+      "record_count": 5000
+    },
+    {
+      "id": "source_05",
+      "path": "dataset_labels/foundation_gaussian_l2_tgv_stl10_train_s1_20260413_tgv_v3_merged.pt",
+      "bytes": 2253891,
+      "sha256": "84f8e0f76ad8e889626772860e11473bf0e230c3ca1bf306fff16d04708793b4",
+      "record_count": 5000
+    },
+    {
+      "id": "source_06",
+      "path": "dataset_labels/foundation_gaussian_l2_tv_stl10_train_s4_20260411_v2_merged.pt",
+      "bytes": 7615653,
+      "sha256": "2e7e14b93a4296c1b6d4c8de1db56375700fb2f5069f42ebbebdc69cb5db9d63",
+      "record_count": 20000
+    },
+    {
+      "id": "source_07",
+      "path": "dataset_labels/foundation_gaussian_l2_tv_wed256_train_s1_20260409_tv_uniform_v1_merged.pt",
+      "bytes": 1602541,
+      "sha256": "67f1a2f3c42525115c478cacc8748462fb4f56a88b06145418bef83189fbdb9a",
+      "record_count": 4344
+    },
+    {
+      "id": "source_08",
+      "path": "dataset_labels/foundation_gaussian_tv_huberdata_stl10_train_s4_20260411_v2_merged.pt",
+      "bytes": 8237071,
+      "sha256": "102cdb3787fa9387930fd1ed3a0a276c0bc81b44a2ac2256899a568cf68fc765",
+      "record_count": 20000
+    },
+    {
+      "id": "source_09",
+      "path": "dataset_labels/foundation_poisson_gaussian_nll_tgv_stl10_train_s1_20260415_131606_nll100_merged.pt",
+      "bytes": 91875,
+      "sha256": "7949185a8438e1c43addaecca792b48424af16792a464a4866d9ec85cce75ea0",
+      "record_count": 100
+    },
+    {
+      "id": "source_10",
+      "path": "dataset_labels/foundation_poisson_gaussian_nll_tv_stl10_train_s4_20260411_v2_merged.pt",
+      "bytes": 10275419,
+      "sha256": "0c27f492797f85ead6c16ad54db8a68c70bab9a5046acc1d148dbc186ec3e567",
+      "record_count": 20000
+    },
+    {
+      "id": "source_11",
+      "path": "dataset_labels/foundation_poisson_nll_tv_stl10_train_s4_20260411_v2_merged.pt",
+      "bytes": 9715237,
+      "sha256": "56542959beebdf947bb3268a2a5510557c0da172e9536d419a73b2ffe1b3f1b9",
+      "record_count": 20000
+    },
+    {
+      "id": "source_12",
+      "path": "dataset_labels/foundation_rgb_impulse_gaussian_huber_tgv_stl10_train_s1_20260409_tgv_uniform_v1_merged.pt",
+      "bytes": 2575565,
+      "sha256": "5901038b712cf6bfc31018c335062cb777e4b64979a2620b6cbd174737964db2",
+      "record_count": 5000
+    },
+    {
+      "id": "source_13",
+      "path": "dataset_labels/foundation_rgb_impulse_huber_tgv_stl10_train_s1_20260409_tgv_uniform_v1_merged.pt",
+      "bytes": 2352727,
+      "sha256": "bfe7dd6a3e191877814d255ed1f7ba3f75fca24497ac83023f3e4da200626aaf",
+      "record_count": 5000
+    },
+    {
+      "id": "diffpir_train",
+      "path": "dataset_labels/diffpir_wed256_train_psnr_iter100_v2_og/diffpir_wed256_train_psnr_iter100_v2_73shards_20260412_193726_merged.pt",
+      "bytes": 1456596,
+      "sha256": "0418d5d3dcbe561eb92c0c099dde812e65ae37baa7dddc36c2c5e7b33bf994aa",
+      "record_count": 4344
+    },
+    {
+      "id": "diffpir_val",
+      "path": "dataset_labels/diffpir_wed256_val_psnr_iter100_v2_og/diffpir_wed256_val_psnr_iter100_v2_8shards_resub2_merged.pt",
+      "bytes": 132708,
+      "sha256": "7335510115663f64ed7979d8c5b032154a2ed48cda733e7a4b4eedf18c04aee1",
+      "record_count": 400
+    },
+    {
+      "id": "cbm3d_train",
+      "path": "dataset_labels/cbm3d_wed256_train_unknown_og/cbm3d_wed256_train_first128_unknown_merged.pt",
+      "bytes": 221055,
+      "sha256": "fdb5a77b88e53b17c12e39c6554d289e4d747aab73ac01033761ec8a25497967",
+      "record_count": 128
+    },
+    {
+      "id": "cbm3d_val",
+      "path": "dataset_labels/cbm3d_wed256_val_unknown_og/cbm3d_wed256_val_first50_unknown_merged.pt",
+      "bytes": 87725,
+      "sha256": "75abeacc45354cbf5ebd47b4663f181980c6f6201dee09382d9d7ea77d302808",
+      "record_count": 50
+    }
+  ],
+  "archive": {
+    "path": "assets/oracle_labels.tar.gz",
+    "bytes": 17649615,
+    "sha256": "d56c5d03b1f25267536976cc7aa2968beb01b9f8f42a5153127ec1e4dcd93586"
+  }
+}

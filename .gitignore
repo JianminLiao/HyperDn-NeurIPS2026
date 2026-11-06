@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+.conda/
+data/
+dataset_labels/
+dataset_labels_regenerated/
+external/
+experiment_runs/
+outputs/
+logs/
+.env
+.env.*
+.DS_Store
+Thumbs.db

@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "If you use HyperDn, please cite the paper below."
+title: "HyperDn: Oracle Supervision Transfers for Hyperparameter Prediction in Model-Based Image Denoising"
+type: software
+authors:
+  - family-names: Liao
+    given-names: Jianmin
+  - family-names: Shen
+    given-names: Lixin
+  - family-names: Xu
+    given-names: Yuesheng
+repository-code: "https://github.com/JianminLiao/HyperDn-NeurIPS2026"
+url: "https://openreview.net/forum?id=vXGWG7Z20k"
+preferred-citation:
+  type: conference-paper
+  title: "Oracle Supervision Transfers for Hyperparameter Prediction in Model-Based Image Denoising"
+  authors:
+    - family-names: Liao
+      given-names: Jianmin
+    - family-names: Shen
+      given-names: Lixin
+    - family-names: Xu
+      given-names: Yuesheng
+  collection-title: "Advances in Neural Information Processing Systems"
+  year: 2026
+  url: "https://openreview.net/forum?id=vXGWG7Z20k"

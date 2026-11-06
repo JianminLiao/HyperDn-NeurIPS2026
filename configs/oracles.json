@@ -1,0 +1,250 @@
+{
+  "format": "hyperdn_oracle_recipes_v1",
+  "description": "WED/PSNR oracle-label generation for DiffPIR and CBM3D.",
+  "banks": [
+    {
+      "id": "diffpir_train",
+      "group": "diffpir",
+      "dataset": "WED_256",
+      "split": "train",
+      "output": "dataset_labels/diffpir_wed256_train_psnr_iter100_v2_og/diffpir_wed256_train_psnr_iter100_v2_73shards_20260412_193726_merged.pt",
+      "record_count": 4344,
+      "image_count": 4344,
+      "samples_per_image": 1,
+      "generator": "find_optimal_diffpir_denoise.py",
+      "env": {
+        "SPLIT": "train",
+        "RUN_SEED": "20260331",
+        "NOISE_MODEL": "GAUSSIAN",
+        "DATASET": "WED_256",
+        "IMAGE_INDICES": "",
+        "OPERATOR_KIND": "IDENTITY_DENOISE",
+        "PSF_FAMILY": "IDENTITY",
+        "SAMPLES_PER_IMAGE_TRAIN": "1",
+        "SAMPLES_PER_IMAGE_TEST": "1",
+        "GAUSSIAN_NOISE_SIGMA_RANGE": "0.019607843137255,0.196078431372549",
+        "LAMBDA_MIN": "2",
+        "LAMBDA_MAX": "20",
+        "LAMBDA_COARSE_STEPS": "8",
+        "LAMBDA_FINE_STEPS": "8",
+        "LAMBDA_REFINE_LEVELS": "2",
+        "ZETA_MIN": "1",
+        "ZETA_MAX": "1",
+        "ZETA_COARSE_STEPS": "1",
+        "ZETA_MID1_STEPS": "1",
+        "ZETA_MID2_STEPS": "1",
+        "ZETA_FINE_STEPS": "1",
+        "METRIC_NAMES": "PSNR,SSIM",
+        "PRIMARY_METRIC": "PSNR",
+        "DIFFPIR_MODEL_NAME": "256x256_diffusion_uncond",
+        "DIFFPIR_CANDIDATE_BATCH_SIZE": "4",
+        "ITER_NUM": "100",
+        "ITER_NUM_U": "1",
+        "SKIP_TYPE": "quad",
+        "ETA": "0.0",
+        "GUIDANCE_SCALE": "1.0",
+        "BETA_START": "0.0001",
+        "BETA_END": "0.02",
+        "NUM_TRAIN_TIMESTEPS": "1000",
+        "DDIM_SAMPLE": "0",
+        "NOISE_INIT_IMG": "max",
+        "LAMBDA_ENCODING_SIGMA": "0.0"
+      },
+      "search_spec": {
+        "regularizer": "DIFFPIR",
+        "search_mode": "coordinate_hierarchical_uniform4",
+        "lambda_min": 2.0,
+        "lambda_max": 20.0,
+        "zeta_min": 1.0,
+        "zeta_max": 1.0,
+        "coarse_lambda_grid": [
+          2.0,
+          2.778990988746275,
+          3.8613954577665,
+          5.365391590559451,
+          7.455187440629881,
+          10.358949358462421,
+          14.393713460023037,
+          20.000000000000004
+        ],
+        "coarse_zeta_grid": [
+          1.0
+        ],
+        "fine_lambda_steps": 8,
+        "lambda_refine_levels": 2,
+        "zeta_mid1_steps": 1,
+        "zeta_mid2_steps": 1,
+        "fine_zeta_steps": 1
+      },
+      "recorded_first_noise": {
+        "noise_seed": 1050886991,
+        "noise_params": {
+          "sigma": 0.10807342276877087
+        }
+      }
+    },
+    {
+      "id": "diffpir_val",
+      "group": "diffpir",
+      "dataset": "WED_256",
+      "split": "val",
+      "output": "dataset_labels/diffpir_wed256_val_psnr_iter100_v2_og/diffpir_wed256_val_psnr_iter100_v2_8shards_resub2_merged.pt",
+      "record_count": 400,
+      "image_count": 400,
+      "samples_per_image": 1,
+      "generator": "find_optimal_diffpir_denoise.py",
+      "env": {
+        "SPLIT": "val",
+        "RUN_SEED": "20260331",
+        "NOISE_MODEL": "GAUSSIAN",
+        "DATASET": "WED_256",
+        "IMAGE_INDICES": "",
+        "OPERATOR_KIND": "IDENTITY_DENOISE",
+        "PSF_FAMILY": "IDENTITY",
+        "SAMPLES_PER_IMAGE_TRAIN": "1",
+        "SAMPLES_PER_IMAGE_TEST": "1",
+        "GAUSSIAN_NOISE_SIGMA_RANGE": "0.019607843137255,0.196078431372549",
+        "LAMBDA_MIN": "2",
+        "LAMBDA_MAX": "20",
+        "LAMBDA_COARSE_STEPS": "8",
+        "LAMBDA_FINE_STEPS": "8",
+        "LAMBDA_REFINE_LEVELS": "2",
+        "ZETA_MIN": "1",
+        "ZETA_MAX": "1",
+        "ZETA_COARSE_STEPS": "1",
+        "ZETA_MID1_STEPS": "1",
+        "ZETA_MID2_STEPS": "1",
+        "ZETA_FINE_STEPS": "1",
+        "METRIC_NAMES": "PSNR,SSIM",
+        "PRIMARY_METRIC": "PSNR",
+        "DIFFPIR_MODEL_NAME": "256x256_diffusion_uncond",
+        "DIFFPIR_CANDIDATE_BATCH_SIZE": "4",
+        "ITER_NUM": "100",
+        "ITER_NUM_U": "1",
+        "SKIP_TYPE": "quad",
+        "ETA": "0.0",
+        "GUIDANCE_SCALE": "1.0",
+        "BETA_START": "0.0001",
+        "BETA_END": "0.02",
+        "NUM_TRAIN_TIMESTEPS": "1000",
+        "DDIM_SAMPLE": "0",
+        "NOISE_INIT_IMG": "max",
+        "LAMBDA_ENCODING_SIGMA": "0.0"
+      },
+      "search_spec": {
+        "regularizer": "DIFFPIR",
+        "search_mode": "coordinate_hierarchical_uniform4",
+        "lambda_min": 2.0,
+        "lambda_max": 20.0,
+        "zeta_min": 1.0,
+        "zeta_max": 1.0,
+        "coarse_lambda_grid": [
+          2.0,
+          2.778990988746275,
+          3.8613954577665,
+          5.365391590559451,
+          7.455187440629881,
+          10.358949358462421,
+          14.393713460023037,
+          20.000000000000004
+        ],
+        "coarse_zeta_grid": [
+          1.0
+        ],
+        "fine_lambda_steps": 8,
+        "lambda_refine_levels": 2,
+        "zeta_mid1_steps": 1,
+        "zeta_mid2_steps": 1,
+        "fine_zeta_steps": 1
+      },
+      "recorded_first_noise": {
+        "noise_seed": 1050886991,
+        "noise_params": {
+          "sigma": 0.10807342276877087
+        }
+      }
+    },
+    {
+      "id": "cbm3d_train",
+      "group": "cbm3d",
+      "dataset": "WED_256",
+      "split": "train",
+      "output": "dataset_labels/cbm3d_wed256_train_unknown_og/cbm3d_wed256_train_first128_unknown_merged.pt",
+      "record_count": 128,
+      "image_count": 128,
+      "samples_per_image": 1,
+      "generator": "find_optimal_cbm3d_denoise.py",
+      "env": {
+        "SPLIT": "train",
+        "RUN_SEED": "20260331",
+        "NOISE_MODEL": "GAUSSIAN",
+        "IMAGE_INDICES": "0-127",
+        "GAUSSIAN_NOISE_SIGMA_MIN": "0.0196078431372549",
+        "GAUSSIAN_NOISE_SIGMA_MAX": "0.19607843137254902",
+        "SIGMA_PSD_MIN": ".003",
+        "SIGMA_PSD_MAX": ".3",
+        "SIGMA_PSD_COARSE_STEPS": "16",
+        "SIGMA_PSD_REFINE_STEPS": "16",
+        "SIGMA_PSD_REFINE_LEVELS": "2",
+        "NUM_SHARDS": "1",
+        "SHARD_ID": "0",
+        "DELETE_SHARDS_AFTER_MERGE": "0"
+      },
+      "search_spec": {
+        "sigma_psd_min": 0.003,
+        "sigma_psd_max": 0.3,
+        "coarse_steps": 16,
+        "refine_steps": 16,
+        "refine_levels": 2,
+        "scale": "log10"
+      },
+      "recorded_first_noise": {
+        "noise_seed": 1050886991,
+        "noise_params": {
+          "sigma": 0.10807342276877087
+        }
+      }
+    },
+    {
+      "id": "cbm3d_val",
+      "group": "cbm3d",
+      "dataset": "WED_256",
+      "split": "val",
+      "output": "dataset_labels/cbm3d_wed256_val_unknown_og/cbm3d_wed256_val_first50_unknown_merged.pt",
+      "record_count": 50,
+      "image_count": 50,
+      "samples_per_image": 1,
+      "generator": "find_optimal_cbm3d_denoise.py",
+      "env": {
+        "SPLIT": "val",
+        "RUN_SEED": "20260331",
+        "NOISE_MODEL": "GAUSSIAN",
+        "IMAGE_INDICES": "0-49",
+        "GAUSSIAN_NOISE_SIGMA_MIN": "0.0196078431372549",
+        "GAUSSIAN_NOISE_SIGMA_MAX": "0.19607843137254902",
+        "SIGMA_PSD_MIN": ".003",
+        "SIGMA_PSD_MAX": ".3",
+        "SIGMA_PSD_COARSE_STEPS": "16",
+        "SIGMA_PSD_REFINE_STEPS": "16",
+        "SIGMA_PSD_REFINE_LEVELS": "2",
+        "NUM_SHARDS": "1",
+        "SHARD_ID": "0",
+        "DELETE_SHARDS_AFTER_MERGE": "0"
+      },
+      "search_spec": {
+        "sigma_psd_min": 0.003,
+        "sigma_psd_max": 0.3,
+        "coarse_steps": 16,
+        "refine_steps": 16,
+        "refine_levels": 2,
+        "scale": "log10"
+      },
+      "recorded_first_noise": {
+        "noise_seed": 1050886991,
+        "noise_params": {
+          "sigma": 0.10807342276877087
+        }
+      }
+    }
+  ]
+}

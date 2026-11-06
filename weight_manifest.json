@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "license": "CC-BY-NC-4.0",
+  "license_file": "THIRD_PARTY_LICENSE.txt",
+  "weights": [
+    {
+      "id": "source_s43",
+      "path": "checkpoints/hyperdn_source_s43.pt",
+      "seed": 43,
+      "target_labels": null,
+      "purpose": "Source-pretrained predictor",
+      "bytes": 10997718,
+      "sha256": "5ed67feb2bd4e60fa51f6efd468b5f847a241989f60ce9d4e72223df76201714",
+      "tensor_count": 109,
+      "source_file": "fullcorpus_kendall_s43_best.pth",
+      "source_sha256": "214fbf2aa8a3ab1e28a9b967534ddbd76c08decc4e59e1cf7d8368e65e4e6dd9",
+      "epoch_zero_based": 42
+    },
+    {
+      "id": "diffpir_2shot_s43",
+      "path": "checkpoints/hyperdn_diffpir_2shot_s43.pt",
+      "seed": 43,
+      "target_labels": 2,
+      "purpose": "DiffPIR two-shot predictor",
+      "bytes": 10998587,
+      "sha256": "1fb41a31c0a1844596ac6d17d6ca68faacddf73738171b8bc894f36d042d3d9e",
+      "tensor_count": 109,
+      "source_file": "expc_ours_n2_s43_best.pth",
+      "source_sha256": "3827d4c95508fed01ca90d7ae23aea91f4f26ce9d0f33d060d817b822ccf50b2",
+      "epoch_zero_based": 149
+    },
+    {
+      "id": "cbm3d_2shot_s43",
+      "path": "checkpoints/hyperdn_cbm3d_2shot_s43.pt",
+      "seed": 43,
+      "target_labels": 2,
+      "purpose": "CBM3D two-shot predictor",
+      "bytes": 10998741,
+      "sha256": "a77156b2d2706bac690314e348a55760fd3f870b6545dfe27cce776e635139f5",
+      "tensor_count": 109,
+      "source_file": "expc_cbm3d_unknown_ours_n2_s43_best.pth",
+      "source_sha256": "f7482ce8bf734378dcf6b85f1110209c7509df0f29038845482a45afe2532480",
+      "epoch_zero_based": 149
+    }
+  ]
+}
