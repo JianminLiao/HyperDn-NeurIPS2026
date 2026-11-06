@@ -11,7 +11,7 @@ The initial official repository uses the selected seed43 NeurIPS supplementary c
 
 All original Python source files, training configurations, checkpoint tensors, oracle-label banks, dependency lists, data instructions, and license files are preserved byte-for-byte. The repository updates `README.md` and the release inventory/checksums, and adds citation metadata, the paper architecture figure, a synthetic inference example, this provenance note, and a CPU-check workflow.
 
-The original archive is provided as a release attachment. A GitHub-generated source archive includes the repository presentation files and therefore has a different archive hash.
+Download the code, checkpoints, and label banks through the repository or GitHub's source archives. The archive hash above identifies the original conference supplementary package used for comparison.
 
 ## Included experimental scope
 
