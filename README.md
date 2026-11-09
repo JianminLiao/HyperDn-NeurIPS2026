@@ -141,11 +141,14 @@ A truncated ConvNeXtV2 encoder extracts features from the degraded image. A cond
 
 ```bibtex
 @inproceedings{liao2026oracle,
-  title     = {Oracle Supervision Transfers for Hyperparameter Prediction in Model-Based Image Denoising},
-  author    = {Liao, Jianmin and Shen, Lixin and Xu, Yuesheng},
-  booktitle = {Advances in Neural Information Processing Systems},
-  year      = {2026},
-  url       = {https://openreview.net/forum?id=vXGWG7Z20k}
+  title         = {Oracle Supervision Transfers for Hyperparameter Prediction in Model-Based Image Denoising},
+  author        = {Liao, Jianmin and Shen, Lixin and Xu, Yuesheng},
+  booktitle     = {Advances in Neural Information Processing Systems},
+  year          = {2026},
+  eprint        = {2605.20479},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CV},
+  url           = {https://arxiv.org/abs/2605.20479}
 }
 ```
 

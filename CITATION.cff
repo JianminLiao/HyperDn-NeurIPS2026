@@ -10,7 +10,7 @@ authors:
   - family-names: Xu
     given-names: Yuesheng
 repository-code: "https://github.com/JianminLiao/HyperDn-NeurIPS2026"
-url: "https://openreview.net/forum?id=vXGWG7Z20k"
+url: "https://arxiv.org/abs/2605.20479"
 preferred-citation:
   type: conference-paper
   title: "Oracle Supervision Transfers for Hyperparameter Prediction in Model-Based Image Denoising"
@@ -23,4 +23,9 @@ preferred-citation:
       given-names: Yuesheng
   collection-title: "Advances in Neural Information Processing Systems"
   year: 2026
-  url: "https://openreview.net/forum?id=vXGWG7Z20k"
+  doi: "10.48550/arXiv.2605.20479"
+  url: "https://arxiv.org/abs/2605.20479"
+  identifiers:
+    - type: url
+      value: "https://openreview.net/forum?id=vXGWG7Z20k"
+      description: "OpenReview"
