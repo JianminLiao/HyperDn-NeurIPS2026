@@ -8,7 +8,7 @@
 
 NeurIPS 2026
 
-[![Paper](https://img.shields.io/badge/Paper-OpenReview-8c1b13.svg)](https://openreview.net/forum?id=vXGWG7Z20k) [![CPU checks](https://github.com/JianminLiao/HyperDn-NeurIPS2026/actions/workflows/checks.yml/badge.svg)](https://github.com/JianminLiao/HyperDn-NeurIPS2026/actions/workflows/checks.yml) [![Code license: MIT](https://img.shields.io/badge/Code-MIT-blue.svg)](LICENSE) [![Weights license: CC BY-NC 4.0](https://img.shields.io/badge/Weights-CC%20BY--NC%204.0-lightgrey.svg)](THIRD_PARTY_NOTICES.md)
+[![arXiv](https://img.shields.io/badge/arXiv-2605.20479-b31b1b.svg)](https://arxiv.org/abs/2605.20479) [![OpenReview](https://img.shields.io/badge/OpenReview-NeurIPS%202026-8c1b13.svg)](https://openreview.net/forum?id=vXGWG7Z20k) [![CPU checks](https://github.com/JianminLiao/HyperDn-NeurIPS2026/actions/workflows/checks.yml/badge.svg)](https://github.com/JianminLiao/HyperDn-NeurIPS2026/actions/workflows/checks.yml) [![Code license: MIT](https://img.shields.io/badge/Code-MIT-blue.svg)](LICENSE) [![Weights license: CC BY-NC 4.0](https://img.shields.io/badge/Weights-CC%20BY--NC%204.0-lightgrey.svg)](THIRD_PARTY_NOTICES.md)
 
 </div>
 
