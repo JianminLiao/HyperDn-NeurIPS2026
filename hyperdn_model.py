@@ -6,20 +6,20 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from restoration.pgccpi_observation_encoding import (
-    PGCCPI_DATA_TERM_ORDER,
-    PGCCPI_NOISE_ATTRIBUTE_NAMES,
-    PGCCPI_OBSERVATION_META_NAMES,
+from restoration.observation_encoding import (
+    DATA_TERM_ORDER,
+    NOISE_ATTRIBUTE_NAMES,
+    OBSERVATION_META_NAMES,
 )
-from restoration.pgccpi_param_encoding import (
-    MAX_PGCCPI_PARAM_DIM,
-    PGCCPI_PARAM_FAMILY_ORDER,
-    PGCCPI_PARAM_ROLE_ORDER,
-    PGCCPI_PARAM_SCALE_ORDER,
-    PGCCPI_REGULARIZER_ORDER,
-    padded_pgccpi_param_role_ids,
-    padded_pgccpi_param_scale_ids,
-    pgccpi_param_family_id,
+from restoration.param_encoding import (
+    MAX_PARAM_DIM,
+    PARAM_FAMILY_ORDER,
+    PARAM_ROLE_ORDER,
+    PARAM_SCALE_ORDER,
+    REGULARIZER_ORDER,
+    padded_param_role_ids,
+    padded_param_scale_ids,
+    param_family_to_id,
 )
 
 
@@ -53,8 +53,8 @@ def _parse_stage_indices(value):
     return tuple(int(v) for v in value)
 
 
-class PGCCPiFoundationModel(nn.Module):
-    """Foundation model for hyperparameter prediction across restoration configurations."""
+class HyperDnModel(nn.Module):
+    """HyperDn: one hyperparameter predictor conditioned on the denoising configuration."""
 
     def __init__(
         self,
@@ -69,11 +69,11 @@ class PGCCPiFoundationModel(nn.Module):
         observation_embed_dim: int = 16,
         slot_embed_dim: int = 32,
         bilinear_dim: int = 128,
-        max_param_dim: int = MAX_PGCCPI_PARAM_DIM,
-        num_regularizers: int = len(PGCCPI_REGULARIZER_ORDER),
-        num_data_terms: int = len(PGCCPI_DATA_TERM_ORDER),
-        noise_attribute_dim: int = len(PGCCPI_NOISE_ATTRIBUTE_NAMES),
-        observation_meta_dim: int = len(PGCCPI_OBSERVATION_META_NAMES),
+        max_param_dim: int = MAX_PARAM_DIM,
+        num_regularizers: int = len(REGULARIZER_ORDER),
+        num_data_terms: int = len(DATA_TERM_ORDER),
+        noise_attribute_dim: int = len(NOISE_ATTRIBUTE_NAMES),
+        observation_meta_dim: int = len(OBSERVATION_META_NAMES),
         use_hw_log: bool = True,
         head_type: str = "bilinear",
         use_simple_head: bool = False,
@@ -169,8 +169,8 @@ class PGCCPiFoundationModel(nn.Module):
                 output_dim=self.max_param_dim,
                 dropout_p=dropout_p,
             )
-            self.role_embedding = nn.Embedding(len(PGCCPI_PARAM_ROLE_ORDER), self.slot_embed_dim)
-            self.scale_embedding = nn.Embedding(len(PGCCPI_PARAM_SCALE_ORDER), self.slot_embed_dim)
+            self.role_embedding = nn.Embedding(len(PARAM_ROLE_ORDER), self.slot_embed_dim)
+            self.scale_embedding = nn.Embedding(len(PARAM_SCALE_ORDER), self.slot_embed_dim)
             self.slot_affine = nn.Linear(self.slot_embed_dim, 2)  # per-slot (scale, bias)
             nn.init.constant_(self.slot_affine.weight[:1], 0.0)  # scale init → 1 after exp
             nn.init.zeros_(self.slot_affine.bias)
@@ -185,38 +185,38 @@ class PGCCPiFoundationModel(nn.Module):
                 nn.GELU(),
                 nn.Dropout(float(dropout_p)),
             )
-            self.role_embedding = nn.Embedding(len(PGCCPI_PARAM_ROLE_ORDER), self.slot_embed_dim)
-            self.scale_embedding = nn.Embedding(len(PGCCPI_PARAM_SCALE_ORDER), self.slot_embed_dim)
+            self.role_embedding = nn.Embedding(len(PARAM_ROLE_ORDER), self.slot_embed_dim)
+            self.scale_embedding = nn.Embedding(len(PARAM_SCALE_ORDER), self.slot_embed_dim)
             self.q_proj = nn.Linear(int(hidden_dim), self.bilinear_dim)
             self.slot_proj = nn.Linear(self.slot_embed_dim, self.bilinear_dim)
             self.h_out = nn.Linear(int(hidden_dim), self.max_param_dim)
             self.slot_out = nn.Linear(self.slot_embed_dim, 1)
-            self.family_gate = nn.Embedding(len(PGCCPI_PARAM_FAMILY_ORDER), self.max_param_dim)
-            self.family_bias = nn.Embedding(len(PGCCPI_PARAM_FAMILY_ORDER), self.max_param_dim)
+            self.family_gate = nn.Embedding(len(PARAM_FAMILY_ORDER), self.max_param_dim)
+            self.family_bias = nn.Embedding(len(PARAM_FAMILY_ORDER), self.max_param_dim)
             nn.init.ones_(self.family_gate.weight)
             nn.init.zeros_(self.family_bias.weight)
 
         # Homoscedastic uncertainty: one log(σ²) per parameter role (Kendall et al., 2018)
-        self.role_log_var = nn.Parameter(torch.zeros(len(PGCCPI_PARAM_ROLE_ORDER)))
+        self.role_log_var = nn.Parameter(torch.zeros(len(PARAM_ROLE_ORDER)))
 
         family_lookup_rows = []
         role_lookup_rows = []
         scale_lookup_rows = []
-        for regularizer_name in PGCCPI_REGULARIZER_ORDER[: int(num_regularizers)]:
+        for regularizer_name in REGULARIZER_ORDER[: int(num_regularizers)]:
             family_row = []
             role_row = []
             scale_row = []
-            for data_term_name in PGCCPI_DATA_TERM_ORDER[: int(num_data_terms)]:
-                family_row.append(pgccpi_param_family_id(regularizer_name, data_term_name))
+            for data_term_name in DATA_TERM_ORDER[: int(num_data_terms)]:
+                family_row.append(param_family_to_id(regularizer_name, data_term_name))
                 role_row.append(
-                    padded_pgccpi_param_role_ids(
+                    padded_param_role_ids(
                         regularizer_name,
                         data_term_name,
                         pad_to=self.max_param_dim,
                     )
                 )
                 scale_row.append(
-                    padded_pgccpi_param_scale_ids(
+                    padded_param_scale_ids(
                         regularizer_name,
                         data_term_name,
                         pad_to=self.max_param_dim,

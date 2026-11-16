@@ -18,9 +18,9 @@ from restoration.curve_pairs import (
 from restoration.diffpir_official import OfficialDiffPIRDenoiser
 from restoration.loaders import WEDLoader
 from restoration.noise_models import apply_noise, make_rng
-from restoration.pgccpi_param_encoding import (
-    MAX_PGCCPI_PARAM_DIM,
-    encode_pgccpi_target,
+from restoration.param_encoding import (
+    MAX_PARAM_DIM,
+    encode_target,
 )
 
 
@@ -668,12 +668,12 @@ def _build_curve_trace(
     score_rows = []
     for param in params:
         entry = evaluation_cache[_parameter_key(param)]
-        encoded = encode_pgccpi_target(
+        encoded = encode_target(
             "DIFFPIR",
             dict(param),
             data_term="L2",
             noise_sigma=float(lambda_encoding_sigma),
-            pad_to=MAX_PGCCPI_PARAM_DIM,
+            pad_to=MAX_PARAM_DIM,
         )
         param_vectors.append(np.asarray(encoded["padded_vector"], dtype=np.float32))
         param_masks.append(np.asarray(encoded["padded_mask"], dtype=np.float32))
@@ -928,7 +928,7 @@ def main():
         "kernel_descriptions": [],
         "gaussian_kernel_truncation": float(GAUSSIAN_KERNEL_TRUNCATION),
     }
-    curve_results = initialize_curve_results(curve_config, current_config["metric_names"], max_param_dim=MAX_PGCCPI_PARAM_DIM)
+    curve_results = initialize_curve_results(curve_config, current_config["metric_names"], max_param_dim=MAX_PARAM_DIM)
     completed_keys = set()
 
     if os.path.exists(out_path):
@@ -1100,7 +1100,7 @@ def main():
         all_params = _unique_sorted_params([entry["param"] for entry in evaluation_cache.values()])
         best_by_metric = _best_by_metric_from_cache(METRIC_NAMES, all_params, evaluation_cache)
         primary_best = best_by_metric[str(PRIMARY_METRIC).upper()]
-        target_info = encode_pgccpi_target(
+        target_info = encode_target(
             "DIFFPIR",
             dict(primary_best["best_param"]),
             data_term="L2",

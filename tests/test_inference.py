@@ -1,4 +1,4 @@
-"""Deployment contracts: no noise-level input, fixed zeta, and executor parity."""
+"""Inference checks: no noise-level input, fixed zeta, and the same solver parameters as evaluation."""
 import unittest
 from types import SimpleNamespace
 

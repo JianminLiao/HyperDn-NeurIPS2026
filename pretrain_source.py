@@ -1,7 +1,7 @@
-"""Source pretraining on the 13-bank input inventory.
+"""Pretrain HyperDn on the 13 pooled TV/TGV source label banks.
 
-Default: seed 43. Set FC_SEEDS=42,43,44,45,46 for the paper's five seeds.
-Set FC_OUTPUT_ROOT to isolate a new protocol or smoke run.
+Runs seed 43 by default. PRETRAIN_SEEDS=42,43,44,45,46 runs the paper's five seeds.
+PRETRAIN_OUTPUT_ROOT sets the output directory (default experiment_runs/source_pretraining).
 """
 from __future__ import annotations
 
@@ -11,17 +11,17 @@ import statistics
 from pathlib import Path
 from typing import Any, Dict, List
 
-from run_diffpir_transfer_experiments import (
+from experiment_runner import (
     ROOT,
     train_run,
     preserve_contract,
 )
 
 
-OUTPUT_ROOT = Path(os.getenv("FC_OUTPUT_ROOT", str(ROOT / "experiment_runs" / "fullcorpus_kendall_bilinear_5seed"))).resolve()
+OUTPUT_ROOT = Path(os.getenv("PRETRAIN_OUTPUT_ROOT", str(ROOT / "experiment_runs" / "source_pretraining"))).resolve()
 
 _DEFAULT_SEEDS = [43]
-_env_seeds = os.getenv("FC_SEEDS", "").strip()
+_env_seeds = os.getenv("PRETRAIN_SEEDS", "").strip()
 SEEDS: List[int] = (
     [int(s) for s in _env_seeds.split(",") if s.strip()]
     if _env_seeds
@@ -29,71 +29,71 @@ SEEDS: List[int] = (
 )
 
 
-# Original 13-bank source input inventory.
+# The 13 source label banks: TV/TGV oracle labels under L2, Huber and NLL data terms.
 TRAIN_SOURCES: List[Dict[str, str]] = [
     {
         "dataset_name": "STL10",
-        "ground_truth_path": "dataset_labels/foundation_bw_impulse_gaussian_tv_huberdata_stl10_train_s1_20260413_impulse_fix_s1_merged.pt",
+        "ground_truth_path": "dataset_labels/source/tv_huber_bw-impulse-gaussian_stl10.pt",
         "split": "train",
     },
     {
         "dataset_name": "STL10",
-        "ground_truth_path": "dataset_labels/foundation_bw_impulse_huber_tgv_stl10_train_s1_20260413_tgv_v3_merged.pt",
+        "ground_truth_path": "dataset_labels/source/tgv_huber_bw-impulse_stl10.pt",
         "split": "train",
     },
     {
         "dataset_name": "STL10",
-        "ground_truth_path": "dataset_labels/foundation_bw_impulse_tv_huberdata_stl10_train_s1_20260413_impulse_fix_s1_merged.pt",
+        "ground_truth_path": "dataset_labels/source/tv_huber_bw-impulse_stl10.pt",
         "split": "train",
     },
     {
         "dataset_name": "STL10",
-        "ground_truth_path": "dataset_labels/foundation_gaussian_huber_tgv_stl10_train_s1_20260413_tgv_v3_merged.pt",
+        "ground_truth_path": "dataset_labels/source/tgv_huber_gaussian_stl10.pt",
         "split": "train",
     },
     {
         "dataset_name": "STL10",
-        "ground_truth_path": "dataset_labels/foundation_gaussian_l2_tgv_stl10_train_s1_20260413_tgv_v3_merged.pt",
+        "ground_truth_path": "dataset_labels/source/tgv_l2_gaussian_stl10.pt",
         "split": "train",
     },
     {
         "dataset_name": "STL10",
-        "ground_truth_path": "dataset_labels/foundation_gaussian_l2_tv_stl10_train_s4_20260411_v2_merged.pt",
+        "ground_truth_path": "dataset_labels/source/tv_l2_gaussian_stl10_x4.pt",
         "split": "train",
     },
     {
         "dataset_name": "WED_256",
-        "ground_truth_path": "dataset_labels/foundation_gaussian_l2_tv_wed256_train_s1_20260409_tv_uniform_v1_merged.pt",
+        "ground_truth_path": "dataset_labels/source/tv_l2_gaussian_wed256.pt",
         "split": "train",
     },
     {
         "dataset_name": "STL10",
-        "ground_truth_path": "dataset_labels/foundation_gaussian_tv_huberdata_stl10_train_s4_20260411_v2_merged.pt",
+        "ground_truth_path": "dataset_labels/source/tv_huber_gaussian_stl10_x4.pt",
         "split": "train",
     },
     {
         "dataset_name": "STL10",
-        "ground_truth_path": "dataset_labels/foundation_poisson_gaussian_nll_tgv_stl10_train_s1_20260415_131606_nll100_merged.pt",
+        "ground_truth_path": "dataset_labels/source/tgv_nll_poisson-gaussian_stl10-first100.pt",
         "split": "train",
     },
     {
         "dataset_name": "STL10",
-        "ground_truth_path": "dataset_labels/foundation_poisson_gaussian_nll_tv_stl10_train_s4_20260411_v2_merged.pt",
+        "ground_truth_path": "dataset_labels/source/tv_nll_poisson-gaussian_stl10_x4.pt",
         "split": "train",
     },
     {
         "dataset_name": "STL10",
-        "ground_truth_path": "dataset_labels/foundation_poisson_nll_tv_stl10_train_s4_20260411_v2_merged.pt",
+        "ground_truth_path": "dataset_labels/source/tv_nll_poisson_stl10_x4.pt",
         "split": "train",
     },
     {
         "dataset_name": "STL10",
-        "ground_truth_path": "dataset_labels/foundation_rgb_impulse_gaussian_huber_tgv_stl10_train_s1_20260409_tgv_uniform_v1_merged.pt",
+        "ground_truth_path": "dataset_labels/source/tgv_huber_rgb-impulse-gaussian_stl10.pt",
         "split": "train",
     },
     {
         "dataset_name": "STL10",
-        "ground_truth_path": "dataset_labels/foundation_rgb_impulse_huber_tgv_stl10_train_s1_20260409_tgv_uniform_v1_merged.pt",
+        "ground_truth_path": "dataset_labels/source/tgv_huber_rgb-impulse_stl10.pt",
         "split": "train",
     },
 ]
@@ -120,10 +120,10 @@ _DEFAULTS: Dict[str, str] = {
 
 
 def _train_env(seed: int) -> Dict[str, str]:
-    """Full-corpus Kendall defaults, with per-key shell-env override.
+    """Paper defaults for source pretraining; any key can be overridden from the shell.
 
     Any key in _DEFAULTS present in os.environ wins, so smoke tests can do
-    `EPOCHS=2 BATCH_SIZE=64 python run_fullcorpus_kendall_5seed.py`.
+    `EPOCHS=2 BATCH_SIZE=64 python pretrain_source.py`.
     """
     env = {key: os.environ.get(key, val) for key, val in _DEFAULTS.items()}
     env["SEED"] = str(seed)
@@ -136,19 +136,19 @@ def main() -> None:
     os.makedirs(OUTPUT_ROOT, exist_ok=True)
 
     manifest = {
-        "run_type": "fullcorpus_kendall_bilinear_5seed",
+        "run_type": "source_pretraining",
         "seeds": SEEDS,
         "train_sources": TRAIN_SOURCES,
         "train_env_representative": _train_env(SEEDS[0]),
         "downstream_consumers": [
-            "DiffPIR few-shot (§3.2)",
+            "DiffPIR few-shot",
             "CBM3D few-shot",
         ],
     }
     preserve_contract(OUTPUT_ROOT / "manifest.json", manifest)
 
     for seed in SEEDS:
-        run_name = f"fullcorpus_kendall_s{seed}"
+        run_name = f"source_s{seed}"
         print(f"\n{'='*60}\n  SEED {seed}  |  {run_name}\n{'='*60}")
         ckpt = train_run(
             train_sources=TRAIN_SOURCES,

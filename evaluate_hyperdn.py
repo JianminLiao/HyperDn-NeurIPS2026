@@ -29,14 +29,14 @@ from PIL import Image
 from torch.utils.data import DataLoader, Subset
 from tqdm import tqdm
 
-from pgccpi_checkpoint_utils import (
+from checkpoint_utils import (
     load_checkpoint_payload,
     load_model_checkpoint_forgiving,
-    validate_foundation_observation_contract,
+    validate_observation_contract,
 )
-from pgccpi_foundation_dataset import PGCCPiFoundationDataset, foundation_collate_fn
-from afkham_baseline import AfkhamCNN, AfkhamCNNFoundationWrapper
-from pgccpi_foundation_model import PGCCPiFoundationModel
+from hyperdn_dataset import HyperDnDataset, hyperdn_collate_fn
+from afkham_baseline import AfkhamCNN, AfkhamCNNWrapper
+from hyperdn_model import HyperDnModel
 from restoration import (
     CILKnownPSFDeblurSolver,
     CCPiPoissonGaussianDeblurSolver,
@@ -49,14 +49,14 @@ from restoration import (
 )
 from restoration.metrics import LPIPSMetric
 from restoration.diffpir_official import OfficialDiffPIRDenoiser
-from restoration.pgccpi_observation_encoding import (
-    PGCCPI_DATA_TERM_ORDER,
+from restoration.observation_encoding import (
+    DATA_TERM_ORDER,
 )
-from restoration.pgccpi_param_encoding import (
-    MAX_PGCCPI_PARAM_DIM,
-    PGCCPI_REGULARIZER_ORDER,
-    decode_mixed_pgccpi_targets,
-    pgccpi_solver_param_dict_from_tensor,
+from restoration.param_encoding import (
+    MAX_PARAM_DIM,
+    REGULARIZER_ORDER,
+    decode_mixed_targets,
+    solver_param_dict_from_tensor,
 )
 
 
@@ -215,11 +215,11 @@ def _is_afkham_checkpoint(checkpoint: Dict[str, Any]) -> bool:
 
 def _build_afkham_model_from_checkpoint(
     checkpoint: Dict[str, Any], device: torch.device
-) -> AfkhamCNNFoundationWrapper:
+) -> AfkhamCNNWrapper:
     target_dim = int(checkpoint["target_dim"])
     afkham = AfkhamCNN(in_channels=3, out_dim=target_dim)
     load_model_checkpoint_forgiving(afkham, checkpoint)
-    wrapper = AfkhamCNNFoundationWrapper(afkham, max_param_dim=MAX_PGCCPI_PARAM_DIM)
+    wrapper = AfkhamCNNWrapper(afkham, max_param_dim=MAX_PARAM_DIM)
     wrapper.eval()
     return wrapper.to(device)
 
@@ -227,19 +227,19 @@ def _build_afkham_model_from_checkpoint(
 def _load_checkpoint(path: str, device: torch.device) -> Dict[str, Any]:
     checkpoint = load_checkpoint_payload(path, map_location=device)
     if not isinstance(checkpoint, dict) or "model_state_dict" not in checkpoint:
-        raise ValueError(f"Unsupported foundation checkpoint format: {path}")
+        raise ValueError(f"Unsupported checkpoint format: {path}")
     if not _is_afkham_checkpoint(checkpoint):
-        validate_foundation_observation_contract(checkpoint, path=path)
+        validate_observation_contract(checkpoint, path=path)
     return checkpoint
 
 
-def _find_latest_foundation_checkpoint() -> str:
-    pattern = os.path.join("checkpoints", "pgccpi_foundation_*_best.pth")
+def _find_latest_checkpoint() -> str:
+    pattern = os.path.join("checkpoints", "hyperdn_*_best.pth")
     candidates = glob(pattern)
     if not candidates:
-        raise FileNotFoundError(f"No foundation checkpoints matched pattern: {pattern}")
+        raise FileNotFoundError(f"No HyperDn checkpoints matched pattern: {pattern}")
     latest = max(candidates, key=os.path.getmtime)
-    print(f">> Auto-detected latest foundation checkpoint: {latest}")
+    print(f">> Auto-detected latest HyperDn checkpoint: {latest}")
     return latest
 
 
@@ -298,8 +298,8 @@ def _build_dataset(
     source: SourceSpec,
     *,
     metric_name: str,
-) -> PGCCPiFoundationDataset:
-    return PGCCPiFoundationDataset(
+) -> HyperDnDataset:
+    return HyperDnDataset(
         dataset_name=source.dataset_name,
         ground_truth_path=source.ground_truth_path,
         metric_name=metric_name,
@@ -311,11 +311,11 @@ def _build_dataset(
         pixel_dithering_prob=0.0,
         enable_rgb_permutation=False,
         rgb_permutation_prob=0.0,
-        max_param_dim=MAX_PGCCPI_PARAM_DIM,
+        max_param_dim=MAX_PARAM_DIM,
     )
 
 
-def _build_model_from_checkpoint(checkpoint: Dict[str, Any], device: torch.device) -> PGCCPiFoundationModel:
+def _build_model_from_checkpoint(checkpoint: Dict[str, Any], device: torch.device) -> HyperDnModel:
     config_dict = dict(checkpoint.get("config", checkpoint.get("model_config", {})))
     state_dict = checkpoint.get("model_state_dict", {})
 
@@ -338,7 +338,7 @@ def _build_model_from_checkpoint(checkpoint: Dict[str, Any], device: torch.devic
             return (0,)
         return tuple(range(n_stages))
 
-    model = PGCCPiFoundationModel(
+    model = HyperDnModel(
         backbone_name=str(config_dict.get("BACKBONE_NAME", "convnextv2_base.fcmae_ft_in22k_in1k")),
         pretrained=False,
         stage_indices=_infer_stage_indices(),
@@ -347,9 +347,9 @@ def _build_model_from_checkpoint(checkpoint: Dict[str, Any], device: torch.devic
         observation_embed_dim=int(config_dict.get("OBSERVATION_EMBED_DIM", 16)),
         slot_embed_dim=int(config_dict.get("SLOT_EMBED_DIM", 32)),
         bilinear_dim=int(config_dict.get("BILINEAR_DIM", 128)),
-        max_param_dim=MAX_PGCCPI_PARAM_DIM,
-        num_regularizers=_embedding_rows("regularizer_embedding.weight", len(PGCCPI_REGULARIZER_ORDER)),
-        num_data_terms=_embedding_rows("data_term_embedding.weight", len(PGCCPI_DATA_TERM_ORDER)),
+        max_param_dim=MAX_PARAM_DIM,
+        num_regularizers=_embedding_rows("regularizer_embedding.weight", len(REGULARIZER_ORDER)),
+        num_data_terms=_embedding_rows("data_term_embedding.weight", len(DATA_TERM_ORDER)),
         head_type=str(config_dict.get("HEAD_TYPE", "bilinear")),
         use_simple_head=bool(config_dict.get("USE_SIMPLE_HEAD", False)),
         dropout_p=float(config_dict.get("DROPOUT", 0.1)),
@@ -358,7 +358,7 @@ def _build_model_from_checkpoint(checkpoint: Dict[str, Any], device: torch.devic
     skipped_shape_mismatch = list(load_info.get("skipped_shape_mismatch", []))
     if skipped_shape_mismatch:
         raise RuntimeError(
-            "Checkpoint is incompatible with the current foundation model architecture: "
+            "Checkpoint is incompatible with the current HyperDn architecture: "
             + ", ".join(skipped_shape_mismatch)
         )
     model.eval()
@@ -369,7 +369,7 @@ def _maybe_override_noise_attr(tensor: torch.Tensor) -> torch.Tensor:
     """If OVERRIDE_NOISE_ATTR env is set, replace the `noise_attributes` tensor
     with the specified vector (broadcast across the batch dim). Used by
     the compositional-encoding ablation (tab:ablation_composition). Empty env
-    = no-op. See train_pgccpi_foundation.py for the matching helper.
+    = no-op. See train_hyperdn.py for the matching helper.
     """
     raw = os.environ.get("OVERRIDE_NOISE_ATTR", "").strip()
     if not raw:
@@ -404,7 +404,7 @@ def _prepare_batch(batch: Dict[str, Any], device: torch.device) -> Dict[str, Any
     return prepared
 
 
-def _foundation_condition_kwargs(model: PGCCPiFoundationModel, payload: Dict[str, Any]) -> Dict[str, Any]:
+def _condition_kwargs(model: HyperDnModel, payload: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "regularizer_ids": payload["regularizer_id"],
         "data_term_ids": payload["data_term_id"],
@@ -426,7 +426,7 @@ def _decode_padded_params(
     regularizer_ids: torch.Tensor,
     data_term_ids: torch.Tensor,
 ) -> torch.Tensor:
-    return decode_mixed_pgccpi_targets(
+    return decode_mixed_targets(
         values.detach().cpu(),
         regularizer_ids.detach().cpu(),
         data_term_ids.detach().cpu(),
@@ -440,7 +440,7 @@ def _decode_param_dict(
     *,
     noise_sigma: float | None = None,
 ) -> Dict[str, float]:
-    return pgccpi_solver_param_dict_from_tensor(
+    return solver_param_dict_from_tensor(
         row,
         regularizer,
         data_term=data_term,
@@ -457,13 +457,13 @@ def _metric_objects(primary_metric_name: str, device: torch.device) -> List[Any]
 
 
 def _effective_reconstruction_data_term(data_term: str, noise_model: str) -> str:
-    from restoration.pgccpi_observation_encoding import (
-        normalize_pgccpi_data_term_name, normalize_pgccpi_noise_model_name,
+    from restoration.observation_encoding import (
+        normalize_data_term_name, normalize_noise_model_name,
     )
-    data_term_key = normalize_pgccpi_data_term_name(data_term)
+    data_term_key = normalize_data_term_name(data_term)
     if data_term_key != "NLL":
         return data_term_key
-    if normalize_pgccpi_noise_model_name(noise_model) in {"POISSON", "POISSON_GAUSSIAN"}:
+    if normalize_noise_model_name(noise_model) in {"POISSON", "POISSON_GAUSSIAN"}:
         return "NLL_EXACT_PG"
     raise ValueError(f"NLL reconstruction requires Poisson-family noise, got {noise_model}.")
 
@@ -550,8 +550,8 @@ def _save_chw_png(path: str, image: np.ndarray) -> None:
 
 
 def _evaluate_reconstruction(
-    model: PGCCPiFoundationModel,
-    dataset: PGCCPiFoundationDataset,
+    model: HyperDnModel,
+    dataset: HyperDnDataset,
     indices: Sequence[int],
     device: torch.device,
     primary_metric_name: str,
@@ -775,8 +775,8 @@ def _evaluate_reconstruction(
 
 
 def _evaluate_source(
-    model: PGCCPiFoundationModel,
-    dataset: PGCCPiFoundationDataset,
+    model: HyperDnModel,
+    dataset: HyperDnDataset,
     source: SourceSpec,
     device: torch.device,
     *,
@@ -791,7 +791,7 @@ def _evaluate_source(
         num_workers=Config.WORKERS,
         pin_memory=True,
         persistent_workers=(Config.WORKERS > 0),
-        collate_fn=foundation_collate_fn,
+        collate_fn=hyperdn_collate_fn,
     )
 
     metric_state = _metric_state_template()
@@ -803,7 +803,7 @@ def _evaluate_source(
             with torch.autocast(device_type="cuda", enabled=(device.type == "cuda" and Config.USE_AMP)):
                 outputs = model(
                     batch["noisy_raw"],
-                    **_foundation_condition_kwargs(model, batch),
+                    **_condition_kwargs(model, batch),
                 )
             _accumulate_metric_state(metric_state, batch, outputs)
 
@@ -883,7 +883,7 @@ def main():
         device = torch.device("cpu")
     print(f"Using device: {device}")
 
-    checkpoint_path = str(Config.CHECKPOINT_PATH).strip() or _find_latest_foundation_checkpoint()
+    checkpoint_path = str(Config.CHECKPOINT_PATH).strip() or _find_latest_checkpoint()
     checkpoint = _load_checkpoint(checkpoint_path, device)
     checkpoint_config = dict(checkpoint.get("config", {}))
 
@@ -925,7 +925,7 @@ def main():
 
     os.makedirs(Config.SAVE_DIR, exist_ok=True)
     timestamp = time.strftime("%Y%m%d_%H%M%S")
-    report_tag = _sanitize_tag(f"{checkpoint.get('run_name', 'foundation')}_{Config.SOURCE_SET}_{timestamp}")
+    report_tag = _sanitize_tag(f"{checkpoint.get('run_name', 'hyperdn')}_{Config.SOURCE_SET}_{timestamp}")
 
     prediction_path = None
     if Config.SAVE_PREDICTIONS:
@@ -973,7 +973,7 @@ def main():
         json.dump(summary, f, indent=2)
 
     print("==============================================")
-    print("        PG/CCPi Foundation Eval Report        ")
+    print("           HyperDn evaluation report          ")
     print("==============================================")
     print(f"Checkpoint:      {checkpoint_path}")
     print(f"Source set:      {Config.SOURCE_SET}")

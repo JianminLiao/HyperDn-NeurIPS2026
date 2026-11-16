@@ -28,7 +28,8 @@ def main():
         verify(archive, manifest["archive"])
         with tarfile.open(archive, "r:gz") as tar:
             members = tar.getmembers()
-            expected = [bank["path"] for bank in banks]
+            # Archive members keep their original file names; each is extracted to its documented path.
+            expected = [bank["archive_member"] for bank in banks]
             if [member.name for member in members] != expected or not all(member.isfile() for member in members):
                 raise RuntimeError("Archive contents do not match the 17-bank manifest")
             for bank, member in zip(banks, members):

@@ -6,19 +6,19 @@ from typing import Any, Dict
 
 import torch
 
-from pgccpi_foundation_model import PGCCPiFoundationModel
-from restoration.pgccpi_observation_encoding import (
-    PGCCPI_DATA_TERM_ORDER,
-    PGCCPI_NOISE_ATTRIBUTE_NAMES,
-    PGCCPI_OBSERVATION_META_NAMES,
+from hyperdn_model import HyperDnModel
+from restoration.observation_encoding import (
+    DATA_TERM_ORDER,
+    NOISE_ATTRIBUTE_NAMES,
+    OBSERVATION_META_NAMES,
 )
-from restoration.pgccpi_param_encoding import (
-    MAX_PGCCPI_PARAM_DIM,
-    PGCCPI_REGULARIZER_ORDER,
+from restoration.param_encoding import (
+    MAX_PARAM_DIM,
+    REGULARIZER_ORDER,
 )
 
 
-def build_imagenet_only_payload(
+def build_imagenet_init_payload(
     *,
     run_name: str,
     backbone_name: str,
@@ -32,7 +32,7 @@ def build_imagenet_only_payload(
     seed: int,
 ) -> Dict[str, Any]:
     torch.manual_seed(int(seed))
-    model = PGCCPiFoundationModel(
+    model = HyperDnModel(
         backbone_name=backbone_name,
         pretrained=bool(pretrained),
         hidden_dim=hidden_dim,
@@ -40,9 +40,9 @@ def build_imagenet_only_payload(
         observation_embed_dim=observation_embed_dim,
         slot_embed_dim=slot_embed_dim,
         bilinear_dim=bilinear_dim,
-        max_param_dim=MAX_PGCCPI_PARAM_DIM,
-        num_regularizers=len(PGCCPI_REGULARIZER_ORDER),
-        num_data_terms=len(PGCCPI_DATA_TERM_ORDER),
+        max_param_dim=MAX_PARAM_DIM,
+        num_regularizers=len(REGULARIZER_ORDER),
+        num_data_terms=len(DATA_TERM_ORDER),
         dropout_p=dropout,
     )
     config = {
@@ -65,9 +65,9 @@ def build_imagenet_only_payload(
         "config": config,
         "train_sources": [],
         "val_sources": [],
-        "noise_attribute_names": [str(name) for name in PGCCPI_NOISE_ATTRIBUTE_NAMES],
-        "observation_meta_names": [str(name) for name in PGCCPI_OBSERVATION_META_NAMES],
-        "data_terms": [str(name) for name in PGCCPI_DATA_TERM_ORDER],
+        "noise_attribute_names": [str(name) for name in NOISE_ATTRIBUTE_NAMES],
+        "observation_meta_names": [str(name) for name in OBSERVATION_META_NAMES],
+        "data_terms": [str(name) for name in DATA_TERM_ORDER],
         "metrics": {},
         "model_state_dict": model.state_dict(),
         "optimizer_state_dict": None,
@@ -75,7 +75,7 @@ def build_imagenet_only_payload(
     }
 
 
-def save_imagenet_only_checkpoint(
+def save_imagenet_init_checkpoint(
     output_path: str,
     *,
     run_name: str,
@@ -89,7 +89,7 @@ def save_imagenet_only_checkpoint(
     dropout: float = 0.1,
     seed: int = 43,
 ) -> str:
-    payload = build_imagenet_only_payload(
+    payload = build_imagenet_init_payload(
         run_name=run_name,
         backbone_name=backbone_name,
         pretrained=pretrained,
@@ -109,7 +109,7 @@ def save_imagenet_only_checkpoint(
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("output_path")
-    parser.add_argument("--run-name", default="imagenet_only_foundation")
+    parser.add_argument("--run-name", default="imagenet_init")
     parser.add_argument("--backbone-name", default="convnextv2_base.fcmae_ft_in22k_in1k")
     parser.add_argument("--pretrained", type=int, default=1)
     parser.add_argument("--hidden-dim", type=int, default=512)
@@ -121,7 +121,7 @@ def main():
     parser.add_argument("--seed", type=int, default=43)
     args = parser.parse_args()
 
-    path = save_imagenet_only_checkpoint(
+    path = save_imagenet_init_checkpoint(
         args.output_path,
         run_name=args.run_name,
         backbone_name=args.backbone_name,

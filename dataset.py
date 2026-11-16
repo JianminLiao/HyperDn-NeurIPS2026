@@ -12,16 +12,16 @@ from typing import Dict, Optional
 from restoration import ProblemConfig
 from restoration.levin import load_levin_kernels
 from restoration.noise_models import apply_noise, make_rng
-from restoration.pgccpi_observation_encoding import (
-    normalize_pgccpi_data_term_name,
-    normalize_pgccpi_noise_model_name,
-    normalize_pgccpi_operator_name,
+from restoration.observation_encoding import (
+    normalize_data_term_name,
+    normalize_noise_model_name,
+    normalize_operator_name,
 )
-from restoration.pgccpi_param_encoding import (
-    decode_pgccpi_target_tensor as _decode_pgccpi_target_tensor_impl,
-    encode_pgccpi_target as _encode_pgccpi_target_impl,
-    normalize_pgccpi_regularizer_name,
-    pgccpi_param_specs,
+from restoration.param_encoding import (
+    decode_target_tensor as _decode_target_tensor_impl,
+    encode_target as _encode_target_impl,
+    normalize_regularizer_name,
+    param_specs,
 )
 
 
@@ -88,10 +88,10 @@ def _safe_scalar_float(value, default: float = 0.0) -> float:
 
 
 def _compact_target_names_for_regularizer(regularizer: str, data_term: str | None = None):
-    return [str(spec["encoded_name"]) for spec in pgccpi_param_specs(regularizer, data_term)]
+    return [str(spec["encoded_name"]) for spec in param_specs(regularizer, data_term)]
 
 
-def _normalize_compact_pgccpi_record(
+def _normalize_compact_record(
     record: Dict,
     *,
     default_regularizer: str,
@@ -100,10 +100,10 @@ def _normalize_compact_pgccpi_record(
     default_operator_kind: str,
     default_tgv_parameterization=None,
 ) -> Dict:
-    regularizer = normalize_pgccpi_regularizer_name(record.get("regularizer", default_regularizer))
-    data_term = normalize_pgccpi_data_term_name(record.get("data_term", default_data_term))
-    noise_model = normalize_pgccpi_noise_model_name(record.get("noise_model", default_noise_model))
-    operator_kind = normalize_pgccpi_operator_name(record.get("operator_kind", default_operator_kind))
+    regularizer = normalize_regularizer_name(record.get("regularizer", default_regularizer))
+    data_term = normalize_data_term_name(record.get("data_term", default_data_term))
+    noise_model = normalize_noise_model_name(record.get("noise_model", default_noise_model))
+    operator_kind = normalize_operator_name(record.get("operator_kind", default_operator_kind))
     tgv_parameterization = record.get("tgv_parameterization", default_tgv_parameterization)
 
     noise_params_raw = record.get("noise_params", {})
@@ -116,7 +116,7 @@ def _normalize_compact_pgccpi_record(
     )
     target_vector = [float(v) for v in list(record.get("target_vector", []))]
     if not target_vector:
-        raise ValueError("Compact PG/CCPi record is missing target_vector.")
+        raise ValueError("Compact record is missing target_vector.")
     target_names_raw = record.get("target_names", None)
     target_names = (
         [str(name) for name in list(target_names_raw)]
@@ -130,7 +130,7 @@ def _normalize_compact_pgccpi_record(
     if regularizer == "DIFFPIR":
         if not optimal_param:
             raise ValueError("DIFFPIR record is missing optimal_param. Re-generate labels.")
-        target_info = _encode_pgccpi_target(
+        target_info = _encode_target(
             regularizer,
             dict(optimal_param),
             data_term=data_term,
@@ -167,7 +167,7 @@ def _normalize_compact_pgccpi_record(
         "task_key": str(
             record.get(
                 "task_key",
-                _pgccpi_task_key(
+                _record_task_key(
                     image_index,
                     sample_index,
                     kernel_index,
@@ -200,23 +200,23 @@ def _normalize_compact_pgccpi_record(
     }
 
 
-def _build_compact_pgccpi_bundle(
+def _build_compact_bundle(
     compact_records,
     *,
     kernel_root=None,
     default_tgv_parameterization=None,
 ):
     if not compact_records:
-        raise ValueError("No usable PG/CCPi records found for compact bundle.")
+        raise ValueError("No usable records found for compact bundle.")
     regularizers = []
     data_terms = []
     noise_models = []
     operator_kinds = []
     for record in compact_records:
-        regularizer = normalize_pgccpi_regularizer_name(record["regularizer"])
-        data_term = normalize_pgccpi_data_term_name(record["data_term"])
-        noise_model = normalize_pgccpi_noise_model_name(record["noise_model"])
-        operator_kind = normalize_pgccpi_operator_name(record["operator_kind"])
+        regularizer = normalize_regularizer_name(record["regularizer"])
+        data_term = normalize_data_term_name(record["data_term"])
+        noise_model = normalize_noise_model_name(record["noise_model"])
+        operator_kind = normalize_operator_name(record["operator_kind"])
         if regularizer not in regularizers:
             regularizers.append(regularizer)
         if data_term not in data_terms:
@@ -274,7 +274,7 @@ def _derive_augmentation_seed(
     operator_kind: str,
     epoch: int = 0,
 ) -> int:
-    operator_key = normalize_pgccpi_operator_name(operator_kind)
+    operator_key = normalize_operator_name(operator_kind)
     max_seed = 2**31 - 1
     mixed = (
         146959810
@@ -453,27 +453,27 @@ def _poisson_gaussian_degrade_known_kernel(
     return (alpha * shot + read).astype(np.float32, copy=False)
 
 
-def _pgccpi_task_key(
+def _record_task_key(
     image_index: int,
     sample_index: int,
     kernel_index: Optional[int] = None,
     *,
     operator_kind: str = "KNOWN_PSF_DEBLUR",
 ) -> str:
-    operator_key = normalize_pgccpi_operator_name(operator_kind)
+    operator_key = normalize_operator_name(operator_kind)
     base = f"img{int(image_index):05d}_sample{int(sample_index):03d}"
     if operator_key == "IDENTITY_DENOISE" or kernel_index is None:
         return base
     return f"{base}_kernel{int(kernel_index):02d}"
 
 
-def _encode_pgccpi_target(
+def _encode_target(
     regularizer: str,
     optimal_param: dict,
     data_term: str | None = None,
     noise_sigma: float | None = None,
 ):
-    return _encode_pgccpi_target_impl(
+    return _encode_target_impl(
         regularizer,
         optimal_param,
         data_term=data_term,
@@ -481,12 +481,12 @@ def _encode_pgccpi_target(
     )
 
 
-def _decode_pgccpi_target_tensor(
+def _decode_target_tensor(
     targets: torch.Tensor,
     regularizer: str,
     data_term: str | None = None,
 ) -> torch.Tensor:
-    return _decode_pgccpi_target_tensor_impl(targets, regularizer, data_term)
+    return _decode_target_tensor_impl(targets, regularizer, data_term)
 
 
 def _resolve_compact_sequence(payload, names, total: int, default_factory):
@@ -499,16 +499,16 @@ def _resolve_compact_sequence(payload, names, total: int, default_factory):
         elif isinstance(values, np.ndarray):
             values = values.tolist()
         elif not isinstance(values, (list, tuple)):
-            raise TypeError(f"Expected {name} in compact PG/CCPi payload to be list-like, got {type(values)!r}.")
+            raise TypeError(f"Expected {name} in compact payload to be list-like, got {type(values)!r}.")
         if len(values) != int(total):
             raise ValueError(
-                f"Inconsistent PG/CCPi label lengths for {name}: expected {total}, got {len(values)}."
+                f"Inconsistent label lengths for {name}: expected {total}, got {len(values)}."
             )
         return list(values)
     return [default_factory(index) for index in range(int(total))]
 
 
-def _load_compact_pgccpi_records(ground_truth_path: str, metric: str):
+def _load_compact_records(ground_truth_path: str, metric: str):
     if not ground_truth_path or not os.path.exists(ground_truth_path):
         raise FileNotFoundError(f"Ground truth file not found: {ground_truth_path}")
 
@@ -522,13 +522,13 @@ def _load_compact_pgccpi_records(ground_truth_path: str, metric: str):
         config.get("operator", payload.get("operator_kind", "KNOWN_PSF_DEBLUR")),
     )
     default_regularizer = (
-        normalize_pgccpi_regularizer_name(str(regularizer_raw).strip())
+        normalize_regularizer_name(str(regularizer_raw).strip())
         if regularizer_raw is not None and str(regularizer_raw).strip()
         else "TV"
     )
-    default_data_term = normalize_pgccpi_data_term_name(data_term_raw)
-    default_noise_model = normalize_pgccpi_noise_model_name(noise_model_raw)
-    default_operator_kind = normalize_pgccpi_operator_name(operator_kind_raw)
+    default_data_term = normalize_data_term_name(data_term_raw)
+    default_noise_model = normalize_noise_model_name(noise_model_raw)
+    default_operator_kind = normalize_operator_name(operator_kind_raw)
     default_tgv_parameterization = config.get("tgv_parameterization", payload.get("tgv_parameterization"))
 
     param_key = f"{metric}_optimal_params"
@@ -538,7 +538,7 @@ def _load_compact_pgccpi_records(ground_truth_path: str, metric: str):
         first_record = records[0]
         if "target_vector" in first_record and "best_score" in first_record:
             compact_records = [
-                _normalize_compact_pgccpi_record(
+                _normalize_compact_record(
                     record,
                     default_regularizer=default_regularizer,
                     default_data_term=default_data_term,
@@ -548,7 +548,7 @@ def _load_compact_pgccpi_records(ground_truth_path: str, metric: str):
                 )
                 for record in records
             ]
-            return _build_compact_pgccpi_bundle(
+            return _build_compact_bundle(
                 compact_records,
                 kernel_root=config.get("kernel_root", payload.get("kernel_root")),
                 default_tgv_parameterization=default_tgv_parameterization,
@@ -573,12 +573,12 @@ def _load_compact_pgccpi_records(ground_truth_path: str, metric: str):
                     noise_params.get("sigma", record.get("sigma", 0.0)),
                 )
             )
-            record_regularizer = normalize_pgccpi_regularizer_name(record.get("regularizer", default_regularizer))
-            record_data_term = normalize_pgccpi_data_term_name(record.get("data_term", default_data_term))
-            record_noise_model = normalize_pgccpi_noise_model_name(record.get("noise_model", default_noise_model))
-            record_operator_kind = normalize_pgccpi_operator_name(record.get("operator_kind", default_operator_kind))
+            record_regularizer = normalize_regularizer_name(record.get("regularizer", default_regularizer))
+            record_data_term = normalize_data_term_name(record.get("data_term", default_data_term))
+            record_noise_model = normalize_noise_model_name(record.get("noise_model", default_noise_model))
+            record_operator_kind = normalize_operator_name(record.get("operator_kind", default_operator_kind))
             record_tgv_parameterization = record.get("tgv_parameterization", default_tgv_parameterization)
-            target_info = _encode_pgccpi_target(
+            target_info = _encode_target(
                 record_regularizer,
                 dict(metric_result["optimal_param"]),
                 record_data_term,
@@ -589,7 +589,7 @@ def _load_compact_pgccpi_records(ground_truth_path: str, metric: str):
                     "task_key": str(
                         record.get(
                             "task_key",
-                            _pgccpi_task_key(
+                            _record_task_key(
                                 image_index,
                                 sample_index,
                                 kernel_index,
@@ -632,7 +632,7 @@ def _load_compact_pgccpi_records(ground_truth_path: str, metric: str):
                     "tgv_parameterization": record_tgv_parameterization,
                 }
             )
-        return _build_compact_pgccpi_bundle(
+        return _build_compact_bundle(
             compact_records,
             kernel_root=config.get("kernel_root"),
             default_tgv_parameterization=default_tgv_parameterization,
@@ -645,7 +645,7 @@ def _load_compact_pgccpi_records(ground_truth_path: str, metric: str):
     scores = payload.get(score_key, [])
 
     if len(params) != total or len(scores) != total:
-        raise ValueError(f"Inconsistent PG/CCPi label lengths in {ground_truth_path}.")
+        raise ValueError(f"Inconsistent label lengths in {ground_truth_path}.")
     sample_indices = _resolve_compact_sequence(payload, ("sample_indices", "noise_indices"), total, lambda idx: idx)
     kernel_indices = _resolve_compact_sequence(payload, ("kernel_indices",), total, lambda _: 0)
     kernel_one_based = _resolve_compact_sequence(payload, ("kernel_one_based",), total, lambda _: 0)
@@ -661,7 +661,7 @@ def _load_compact_pgccpi_records(ground_truth_path: str, metric: str):
 
     compact_records = []
     for idx in range(total):
-        target_info = _encode_pgccpi_target(
+        target_info = _encode_target(
             default_regularizer,
             dict(params[idx]),
             default_data_term,
@@ -672,7 +672,7 @@ def _load_compact_pgccpi_records(ground_truth_path: str, metric: str):
                 "task_key": (
                     str(task_keys[idx])
                     if str(task_keys[idx]).strip()
-                    else _pgccpi_task_key(
+                    else _record_task_key(
                         image_ids[idx],
                         sample_indices[idx],
                         kernel_indices[idx],
@@ -718,14 +718,14 @@ def _load_compact_pgccpi_records(ground_truth_path: str, metric: str):
             }
         )
 
-    return _build_compact_pgccpi_bundle(
+    return _build_compact_bundle(
         compact_records,
         kernel_root=config.get("kernel_root"),
         default_tgv_parameterization=default_tgv_parameterization,
     )
 
 
-def _filter_pgccpi_records_by_kernel_indices(compact_bundle, include_kernel_indices=None, exclude_kernel_indices=None):
+def _filter_records_by_kernel_indices(compact_bundle, include_kernel_indices=None, exclude_kernel_indices=None):
     if include_kernel_indices is None and exclude_kernel_indices is None:
         return compact_bundle
 
@@ -742,7 +742,7 @@ def _filter_pgccpi_records_by_kernel_indices(compact_bundle, include_kernel_indi
         filtered_records.append(record)
 
     if not filtered_records:
-        raise ValueError("Kernel filtering removed all PG/CCPi records.")
+        raise ValueError("Kernel filtering removed all records.")
 
     filtered_bundle = dict(compact_bundle)
     filtered_bundle["records"] = filtered_records
@@ -750,7 +750,7 @@ def _filter_pgccpi_records_by_kernel_indices(compact_bundle, include_kernel_indi
     return filtered_bundle
 
 
-class _BasePGCCPIDataset(Dataset):
+class _BaseOracleDataset(Dataset):
     def __init__(
         self,
         ground_truth_path: str,
@@ -779,12 +779,12 @@ class _BasePGCCPIDataset(Dataset):
         self.rgb_permutation_prob = float(rgb_permutation_prob)
 
         if compact_bundle is None:
-            print(f"Loading PG/CCPi Ground Truth from {ground_truth_path}...")
-            compact_bundle = _load_compact_pgccpi_records(ground_truth_path, metric)
+            print(f"Loading oracle labels from {ground_truth_path}...")
+            compact_bundle = _load_compact_records(ground_truth_path, metric)
         else:
-            print("Reusing preloaded PG/CCPi compact records...")
+            print("Reusing preloaded compact records...")
 
-        compact_bundle = _filter_pgccpi_records_by_kernel_indices(
+        compact_bundle = _filter_records_by_kernel_indices(
             compact_bundle,
             include_kernel_indices=include_kernel_indices,
             exclude_kernel_indices=exclude_kernel_indices,
@@ -797,25 +797,25 @@ class _BasePGCCPIDataset(Dataset):
         self.record_regularizers = list(
             compact_bundle.get(
                 "regularizers",
-                sorted(dict.fromkeys(normalize_pgccpi_regularizer_name(record["regularizer"]) for record in self.records)),
+                sorted(dict.fromkeys(normalize_regularizer_name(record["regularizer"]) for record in self.records)),
             )
         )
         self.record_data_terms = list(
             compact_bundle.get(
                 "data_terms",
-                sorted(dict.fromkeys(normalize_pgccpi_data_term_name(record["data_term"]) for record in self.records)),
+                sorted(dict.fromkeys(normalize_data_term_name(record["data_term"]) for record in self.records)),
             )
         )
         self.record_noise_models = list(
             compact_bundle.get(
                 "noise_models",
-                sorted(dict.fromkeys(normalize_pgccpi_noise_model_name(record["noise_model"]) for record in self.records)),
+                sorted(dict.fromkeys(normalize_noise_model_name(record["noise_model"]) for record in self.records)),
             )
         )
         self.record_operator_kinds = list(
             compact_bundle.get(
                 "operator_kinds",
-                sorted(dict.fromkeys(normalize_pgccpi_operator_name(record["operator_kind"]) for record in self.records)),
+                sorted(dict.fromkeys(normalize_operator_name(record["operator_kind"]) for record in self.records)),
             )
         )
         self.has_mixed_regularizers = bool(len(self.record_regularizers) > 1)
@@ -840,7 +840,7 @@ class _BasePGCCPIDataset(Dataset):
         self.kernel_root = resolved_kernel_root
         if "KNOWN_PSF_DEBLUR" in self.record_operator_kinds:
             if not self.kernel_root:
-                raise ValueError("PG/CCPi deblur dataset requires kernel_root either from GT config or constructor.")
+                raise ValueError("Deblurring labels require kernel_root either from GT config or constructor.")
             self.kernels = load_levin_kernels(self.kernel_root)
         else:
             self.kernels = []
@@ -857,16 +857,16 @@ class _BasePGCCPIDataset(Dataset):
     def decode_targets(self, targets: torch.Tensor) -> torch.Tensor:
         if self.has_mixed_regularizers or self.has_mixed_data_terms:
             raise ValueError(
-                "decode_targets is not defined for mixed-family PG/CCPi bundles. "
-                "Use decode_mixed_pgccpi_targets with per-sample regularizer/data-term ids."
+                "decode_targets is not defined for mixed-family bundles. "
+                "Use decode_mixed_targets with per-sample regularizer/data-term ids."
             )
-        return _decode_pgccpi_target_tensor(targets, self.regularizer, self.data_term)
+        return _decode_target_tensor(targets, self.regularizer, self.data_term)
 
     def _build_sample(self, clean_img, record):
         clean_np = _to_float_hwc(clean_img)
         clean_chw = clean_np.transpose((2, 0, 1))
-        record_operator_kind = normalize_pgccpi_operator_name(record.get("operator_kind", self.operator_kind))
-        record_noise_model = normalize_pgccpi_noise_model_name(record.get("noise_model", self.noise_model))
+        record_operator_kind = normalize_operator_name(record.get("operator_kind", self.operator_kind))
+        record_noise_model = normalize_noise_model_name(record.get("noise_model", self.noise_model))
         # Only mix the current epoch into the augmentation seed when augmentations
         # are actually applied. This keeps val / eval (apply_augmentations=False)
         # fully deterministic while letting training see a fresh augmentation plan
@@ -935,7 +935,7 @@ class _BasePGCCPIDataset(Dataset):
                 **noise_params,
             ).noisy
         else:
-            raise ValueError(f"Unsupported PG/CCPi operator_kind={record_operator_kind!r}.")
+            raise ValueError(f"Unsupported operator_kind={record_operator_kind!r}.")
         if apply_post_degrade_augment:
             clean_chw, noisy_chw = _apply_joint_training_augmentations(
                 clean_chw,
@@ -964,7 +964,7 @@ class _BasePGCCPIDataset(Dataset):
         return noisy_tensor, target_tensor, target_mask, score_tensor, clean_tensor, noisy_raw_tensor
 
 
-class STL10PGCCPIDataset(_BasePGCCPIDataset):
+class STL10OracleDataset(_BaseOracleDataset):
     def __init__(
         self,
         stl10_root='./data',
@@ -1007,7 +1007,7 @@ class STL10PGCCPIDataset(_BasePGCCPIDataset):
             compact_bundle=compact_bundle,
         )
         print(
-            f"STL10 PG/CCPi dataset loaded. Total samples: {self.length}. "
+            f"STL-10 labels loaded. Total samples: {self.length}. "
             f"Metric: {metric}. Regularizer: {self.regularizer}."
         )
 
@@ -1017,7 +1017,7 @@ class STL10PGCCPIDataset(_BasePGCCPIDataset):
         return self._build_sample(clean_img, record)
 
 
-class WEDPGCCPIDataset(_BasePGCCPIDataset):
+class WEDOracleDataset(_BaseOracleDataset):
     def __init__(
         self,
         wed_root='./data/WED_crop',
@@ -1071,7 +1071,7 @@ class WEDPGCCPIDataset(_BasePGCCPIDataset):
             compact_bundle=compact_bundle,
         )
         print(
-            f"{self.dataset_name} PG/CCPi dataset loaded. Total samples: {self.length}. "
+            f"{self.dataset_name} labels loaded. Total samples: {self.length}. "
             f"Metric: {metric}. Regularizer: {self.regularizer}."
         )
 
@@ -1083,7 +1083,7 @@ class WEDPGCCPIDataset(_BasePGCCPIDataset):
         return self._build_sample(clean_img, record)
 
 
-class Kodak24PGCCPIDataset(_BasePGCCPIDataset):
+class Kodak24OracleDataset(_BaseOracleDataset):
     def __init__(
         self,
         kodak24_root='./data/Kodak24',
@@ -1130,7 +1130,7 @@ class Kodak24PGCCPIDataset(_BasePGCCPIDataset):
             compact_bundle=compact_bundle,
         )
         print(
-            f"Kodak24 PG/CCPi dataset loaded. Total samples: {self.length}. "
+            f"Kodak24 labels loaded. Total samples: {self.length}. "
             f"Metric: {metric}. Regularizer: {self.regularizer}."
         )
 
@@ -1142,7 +1142,7 @@ class Kodak24PGCCPIDataset(_BasePGCCPIDataset):
         return self._build_sample(clean_img, record)
 
 
-class CBSD68PGCCPIDataset(_BasePGCCPIDataset):
+class CBSD68OracleDataset(_BaseOracleDataset):
     def __init__(
         self,
         cbsd68_root='./data/CBSD68',
@@ -1180,7 +1180,7 @@ class CBSD68PGCCPIDataset(_BasePGCCPIDataset):
             include_kernel_indices=include_kernel_indices, exclude_kernel_indices=exclude_kernel_indices,
             compact_bundle=compact_bundle,
         )
-        print(f"CBSD68 PG/CCPi dataset loaded. Total samples: {self.length}. "
+        print(f"CBSD68 labels loaded. Total samples: {self.length}. "
               f"Metric: {metric}. Regularizer: {self.regularizer}.")
 
     def __getitem__(self, idx):
@@ -1190,7 +1190,7 @@ class CBSD68PGCCPIDataset(_BasePGCCPIDataset):
         return self._build_sample(clean_img, record)
 
 
-class Urban100PGCCPIDataset(_BasePGCCPIDataset):
+class Urban100OracleDataset(_BaseOracleDataset):
     def __init__(
         self,
         urban100_root='./data/Urban100',
@@ -1228,7 +1228,7 @@ class Urban100PGCCPIDataset(_BasePGCCPIDataset):
             include_kernel_indices=include_kernel_indices, exclude_kernel_indices=exclude_kernel_indices,
             compact_bundle=compact_bundle,
         )
-        print(f"Urban100 PG/CCPi dataset loaded. Total samples: {self.length}. "
+        print(f"Urban100 labels loaded. Total samples: {self.length}. "
               f"Metric: {metric}. Regularizer: {self.regularizer}.")
 
     def __getitem__(self, idx):

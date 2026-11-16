@@ -1,18 +1,18 @@
 """Merge verified CBM3D worker reports for the requested shot/seed grid.
 
 Uses the same CBM3D_OUTPUT_ROOT, CBM3D_METHODS, CBM3D_SHOTS and CBM3D_SEEDS
-settings as run_expc_cbm3d_unknown.py (seed 43 by default).
+settings as fewshot_cbm3d.py (seed 43 by default).
 """
 import json
 import os
 from pathlib import Path
 
 from fewshot_protocol import METHODS, SHOTS, parse_list, write_reports
-from run_diffpir_transfer_experiments import ROOT
+from experiment_runner import ROOT
 
 
 def main():
-    output = Path(os.getenv("CBM3D_OUTPUT_ROOT", str(ROOT / "experiment_runs/expc_cbm3d_unknown")))
+    output = Path(os.getenv("CBM3D_OUTPUT_ROOT", str(ROOT / "experiment_runs/fewshot_cbm3d")))
     methods = parse_list("CBM3D_METHODS", METHODS)
     shots = [int(value) for value in parse_list("CBM3D_SHOTS", SHOTS)]
     seeds = [int(value) for value in parse_list("CBM3D_SEEDS", [43])]

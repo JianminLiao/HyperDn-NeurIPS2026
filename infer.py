@@ -9,9 +9,9 @@ import numpy as np
 from PIL import Image
 import torch
 
-from pgccpi_foundation_model import PGCCPiFoundationModel
-from restoration.pgccpi_observation_encoding import PGCCPI_DATA_TERM_ORDER
-from restoration.pgccpi_param_encoding import PGCCPI_REGULARIZER_ORDER
+from hyperdn_model import HyperDnModel
+from restoration.observation_encoding import DATA_TERM_ORDER
+from restoration.param_encoding import REGULARIZER_ORDER
 
 ROOT = Path(__file__).resolve().parent
 CHECKPOINTS = {
@@ -25,7 +25,7 @@ def load_model(device="cpu", checkpoint=None):
     """Load every tensor strictly, preserving the selected checkpoint vocabulary."""
     payload = torch.load(checkpoint or CHECKPOINTS["diffpir"], map_location="cpu", weights_only=True)
     state = payload["model_state_dict"]
-    model = PGCCPiFoundationModel(
+    model = HyperDnModel(
         pretrained=False,
         stage_indices=(0, 1),
         num_regularizers=state["regularizer_embedding.weight"].shape[0],
@@ -47,7 +47,7 @@ def predict_hyperparameter(model, rgb, algorithm):
     The predictor receives the Gaussian category, with zero observation metadata.
     It does not receive the noise standard deviation or a clean target image.
     """
-    regularizer_id = PGCCPI_REGULARIZER_ORDER.index(algorithm.upper())
+    regularizer_id = REGULARIZER_ORDER.index(algorithm.upper())
     if regularizer_id >= model.regularizer_embedding.num_embeddings:
         raise ValueError(f"This checkpoint has no {algorithm.upper()} entry; use its adapted checkpoint.")
     n = rgb.shape[0]
@@ -55,7 +55,7 @@ def predict_hyperparameter(model, rgb, algorithm):
         rgb,
         regularizer_ids=torch.full((n,), regularizer_id, device=rgb.device, dtype=torch.long),
         data_term_ids=torch.full(
-            (n,), PGCCPI_DATA_TERM_ORDER.index("L2"), device=rgb.device, dtype=torch.long
+            (n,), DATA_TERM_ORDER.index("L2"), device=rgb.device, dtype=torch.long
         ),
         noise_attributes=rgb.new_tensor([0, 1, 0, 0, 0, 0]).repeat(n, 1),
         observation_meta=rgb.new_zeros(n, 5),

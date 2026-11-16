@@ -1,4 +1,4 @@
-"""Paper few-shot schedules for WED/PSNR DiffPIR and CBM3D."""
+"""Few-shot protocol shared by fewshot_diffpir.py and fewshot_cbm3d.py."""
 from __future__ import annotations
 
 import json
@@ -7,22 +7,22 @@ import time
 from pathlib import Path
 from statistics import mean, stdev, pstdev
 
-from create_imagenet_only_foundation_checkpoint import save_imagenet_only_checkpoint
-from run_diffpir_transfer_experiments import (
+from create_imagenet_init_checkpoint import save_imagenet_init_checkpoint
+from experiment_runner import (
     ROOT, PYTHON, train_run, eval_run, extract_eval_metrics, run_with_log,
     preserve_contract, implementation_signature, source_signatures, write_csv, environment_contract,
 )
 
 SHOTS = [1, 2, 4, 16, 32, 64, 128]
-METHODS = ["ours", "imagenet_only", "afkham"]
+METHODS = ["ours", "imagenet_init", "afkham"]
 SOURCES = {
     "diffpir": {
-        "train": {"dataset_name": "WED_256", "ground_truth_path": "dataset_labels/diffpir_wed256_train_psnr_iter100_v2_og/diffpir_wed256_train_psnr_iter100_v2_73shards_20260412_193726_merged.pt", "split": "train"},
-        "eval": {"dataset_name": "WED_256", "ground_truth_path": "dataset_labels/diffpir_wed256_val_psnr_iter100_v2_og/diffpir_wed256_val_psnr_iter100_v2_8shards_resub2_merged.pt", "split": "val"},
+        "train": {"dataset_name": "WED_256", "ground_truth_path": "dataset_labels/target/diffpir_wed256_train.pt", "split": "train"},
+        "eval": {"dataset_name": "WED_256", "ground_truth_path": "dataset_labels/target/diffpir_wed256_val.pt", "split": "val"},
     },
     "cbm3d": {
-        "train": {"dataset_name": "WED_256", "ground_truth_path": "dataset_labels/cbm3d_wed256_train_unknown_og/cbm3d_wed256_train_first128_unknown_merged.pt", "split": "train"},
-        "eval": {"dataset_name": "WED_256", "ground_truth_path": "dataset_labels/cbm3d_wed256_val_unknown_og/cbm3d_wed256_val_first50_unknown_merged.pt", "split": "val"},
+        "train": {"dataset_name": "WED_256", "ground_truth_path": "dataset_labels/target/cbm3d_wed256_train128.pt", "split": "train"},
+        "eval": {"dataset_name": "WED_256", "ground_truth_path": "dataset_labels/target/cbm3d_wed256_val50.pt", "split": "val"},
     },
 }
 
@@ -34,20 +34,20 @@ def parse_list(name, default):
 
 def source_checkpoint(seed: int) -> Path:
     custom = os.getenv("SOURCE_CHECKPOINT_DIR", "").strip()
-    directory = Path(custom) if custom else ROOT / "experiment_runs/fullcorpus_kendall_bilinear_5seed/checkpoints"
-    trained = directory / f"fullcorpus_kendall_s{seed}_best.pth"
+    directory = Path(custom) if custom else ROOT / "experiment_runs/source_pretraining/checkpoints"
+    trained = directory / f"source_s{seed}_best.pth"
     if trained.exists():
-        complete = directory / f"fullcorpus_kendall_s{seed}_complete.json"
+        complete = directory / f"source_s{seed}_complete.json"
         if not custom and not complete.exists():
             raise RuntimeError(f"Source pretraining has no completion marker: {complete}. Do not use a partial validation-best checkpoint.")
         return trained
     bundled = ROOT / "checkpoints" / f"hyperdn_source_s{seed}.pt"
     if not custom and bundled.exists():
         return bundled
-    raise FileNotFoundError(f"No source model for seed {seed}. Train it with FC_SEEDS={seed} python run_fullcorpus_kendall_5seed.py, or set SOURCE_CHECKPOINT_DIR.")
+    raise FileNotFoundError(f"No source model for seed {seed}. Train it with PRETRAIN_SEEDS={seed} python pretrain_source.py, or set SOURCE_CHECKPOINT_DIR.")
 
 
-def foundation_env(shot: int, seed: int) -> dict:
+def hyperdn_env(shot: int, seed: int) -> dict:
     return {
         "SPLIT": "train", "VAL_RATIO": "0", "WORKERS": "0", "USE_AMP": "0",
         "WEIGHT_DECAY": "1e-5", "MAX_TRAIN_SAMPLES": str(shot), "SEED": str(seed),
@@ -71,7 +71,7 @@ def protocol_summary(target: str) -> dict:
     return {
         "target": target, "metric": "PSNR", "train_selection": "numpy.default_rng(seed).shuffle, prefix N",
         "evaluation_images": 50, "checkpoint_selection": "final epoch, no target validation selection",
-        "foundation_epochs": 150, "foundation_amp": False,
+        "hyperdn_epochs": 150, "hyperdn_amp": False,
         "afkham_epochs": {"N<=2": 500, "N>2": 100},
         "afkham_cuda_amp": True, "afkham_warmup_epochs": 1,
         "afkham_note": "Historical USE_AMP=0 was ignored; WARMUP_RATIO=0 still produced one warmup epoch.",
@@ -84,7 +84,7 @@ def protocol_summary(target: str) -> dict:
 
 def run_cell(target, method, shot, seed, output, only_eval=False):
     sources = SOURCES[target]
-    prefix = "expc" if target == "diffpir" else "expc_cbm3d_unknown"
+    prefix = target
     run_name = f"{prefix}_{method}_n{shot}_s{seed}"
     checkpoint_dir, eval_dir = output / "checkpoints", output / "eval" / run_name
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
@@ -110,13 +110,13 @@ def run_cell(target, method, shot, seed, output, only_eval=False):
         if method == "ours":
             init = source_checkpoint(seed)
         else:
-            init = checkpoint_dir / f"imagenet_only_s{seed}.pth"
-            preserve_contract(checkpoint_dir / f"imagenet_only_s{seed}_contract.json", {
+            init = checkpoint_dir / f"imagenet_init_s{seed}.pth"
+            preserve_contract(checkpoint_dir / f"imagenet_init_s{seed}_contract.json", {
                 "seed": seed, "initialization": "ImageNet backbone, random head", "implementation": implementation_signature(),
             }, [init])
             if not init.exists():
-                save_imagenet_only_checkpoint(str(init), run_name=f"imagenet_only_s{seed}", seed=seed)
-        settings = {**foundation_env(shot, seed), "INIT_CHECKPOINT": str(init),
+                save_imagenet_init_checkpoint(str(init), run_name=f"imagenet_init_s{seed}", seed=seed)
+        settings = {**hyperdn_env(shot, seed), "INIT_CHECKPOINT": str(init),
                     # Match original initialization order; the initialized weights are then loaded.
                     "BACKBONE_PRETRAINED": "0" if method == "ours" else "1"}
         checkpoint = train_run(train_sources=[sources["train"]], run_name=run_name,
@@ -147,13 +147,13 @@ def write_reports(directory: Path, rows: list, target: str):
 
 
 def main(target: str):
-    env_prefix = "EXPC" if target == "diffpir" else "CBM3D"
+    env_prefix = target.upper()
     methods = parse_list(f"{env_prefix}_METHODS", METHODS)
     shots = [int(value) for value in parse_list(f"{env_prefix}_SHOTS", SHOTS)]
     seeds = [int(value) for value in parse_list(f"{env_prefix}_SEEDS", [43])]
     if not set(methods) <= set(METHODS) or not set(shots) <= set(SHOTS):
         raise ValueError(f"Use methods {METHODS} and paper budgets {SHOTS}.")
-    default = "expc_fullcorpus_kendall" if target == "diffpir" else "expc_cbm3d_unknown"
+    default = f"fewshot_{target}"
     output = Path(os.getenv(f"{env_prefix}_OUTPUT_ROOT", str(ROOT / "experiment_runs" / default))).resolve()
     only_eval = os.getenv(f"{env_prefix}_ONLY_EVAL", "0").lower() in {"1", "true", "yes"}
     rank, world = int(os.getenv(f"{env_prefix}_RANK", "0")), int(os.getenv(f"{env_prefix}_WORLD_SIZE", "1"))

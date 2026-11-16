@@ -8,29 +8,29 @@ import torch
 from torch.utils.data import Dataset
 
 from dataset import (
-    STL10PGCCPIDataset,
-    WEDPGCCPIDataset,
-    Kodak24PGCCPIDataset,
-    CBSD68PGCCPIDataset,
-    Urban100PGCCPIDataset,
+    STL10OracleDataset,
+    WEDOracleDataset,
+    Kodak24OracleDataset,
+    CBSD68OracleDataset,
+    Urban100OracleDataset,
 )
-from restoration.pgccpi_observation_encoding import (
-    PGCCPI_NOISE_ATTRIBUTE_NAMES,
-    PGCCPI_OBSERVATION_META_NAMES,
-    encode_pgccpi_noise_attributes,
-    encode_pgccpi_observation_metadata,
-    normalize_pgccpi_data_term_name,
-    normalize_pgccpi_noise_model_name,
-    normalize_pgccpi_operator_name,
-    pgccpi_data_term_id,
-    pgccpi_operator_id,
+from restoration.observation_encoding import (
+    NOISE_ATTRIBUTE_NAMES,
+    OBSERVATION_META_NAMES,
+    encode_noise_attributes,
+    encode_observation_metadata,
+    normalize_data_term_name,
+    normalize_noise_model_name,
+    normalize_operator_name,
+    data_term_to_id,
+    operator_to_id,
 )
-from restoration.pgccpi_param_encoding import (
-    MAX_PGCCPI_PARAM_DIM,
-    decode_pgccpi_target_tensor,
-    pad_pgccpi_target_vector,
-    pgccpi_regularizer_id,
-    normalize_pgccpi_regularizer_name,
+from restoration.param_encoding import (
+    MAX_PARAM_DIM,
+    decode_target_tensor,
+    pad_target_vector,
+    regularizer_to_id,
+    normalize_regularizer_name,
 )
 
 
@@ -42,18 +42,18 @@ def _load_payload(path: str) -> Dict[str, Any]:
 
 
 def _observation_meta_applicable(noise_model_name: str) -> bool:
-    # Foundation observation metadata currently encodes the Poisson-Gaussian
+    # Observation metadata currently encodes the Poisson-Gaussian
     # case only. Pure Poisson can be added later as a separate contract change.
-    return normalize_pgccpi_noise_model_name(noise_model_name) == "POISSON_GAUSSIAN"
+    return normalize_noise_model_name(noise_model_name) == "POISSON_GAUSSIAN"
 
 
-def _build_foundation_observation_meta(
+def _build_observation_meta(
     base_record: Dict[str, Any],
     *,
     applicable: bool,
     observed: bool,
 ) -> np.ndarray:
-    return encode_pgccpi_observation_metadata(
+    return encode_observation_metadata(
         alpha=float(base_record.get("alpha", 0.0)),
         sigma_read=float(base_record.get("sigma_read", 0.0)),
         background=float(base_record.get("background", 0.0)),
@@ -63,7 +63,7 @@ def _build_foundation_observation_meta(
 
 
 def _unknown_noise_attributes() -> np.ndarray:
-    return encode_pgccpi_noise_attributes("UNKNOWN")
+    return encode_noise_attributes("UNKNOWN")
 
 
 def _build_base_dataset(
@@ -97,28 +97,28 @@ def _build_base_dataset(
         exclude_kernel_indices=exclude_kernel_indices,
     )
     if dataset_name == "STL10":
-        return STL10PGCCPIDataset(stl10_root="./data", **kwargs)
+        return STL10OracleDataset(stl10_root="./data", **kwargs)
     if dataset_name == "WED_crop":
-        return WEDPGCCPIDataset(wed_root="./data/WED_crop", **kwargs)
+        return WEDOracleDataset(wed_root="./data/WED_crop", **kwargs)
     if dataset_name == "WED_256":
-        return WEDPGCCPIDataset(wed_root="./data/WED_256", **kwargs)
+        return WEDOracleDataset(wed_root="./data/WED_256", **kwargs)
     if dataset_name == "Kodak24":
-        return Kodak24PGCCPIDataset(kodak24_root="./data/Kodak24", **kwargs)
+        return Kodak24OracleDataset(kodak24_root="./data/Kodak24", **kwargs)
     if dataset_name == "CBSD68":
-        return CBSD68PGCCPIDataset(cbsd68_root="./data/CBSD68", **kwargs)
+        return CBSD68OracleDataset(cbsd68_root="./data/CBSD68", **kwargs)
     if dataset_name == "Urban100":
-        return Urban100PGCCPIDataset(urban100_root="./data/Urban100", **kwargs)
+        return Urban100OracleDataset(urban100_root="./data/Urban100", **kwargs)
     # 256-crop cross-dataset benchmarks; WED-like folder layout (val/ subdir).
     if dataset_name == "CBSD68_256":
-        return WEDPGCCPIDataset(wed_root="./data/CBSD68_256", **kwargs)
+        return WEDOracleDataset(wed_root="./data/CBSD68_256", **kwargs)
     if dataset_name == "URBAN100_256":
-        return WEDPGCCPIDataset(wed_root="./data/URBAN100_256", **kwargs)
+        return WEDOracleDataset(wed_root="./data/URBAN100_256", **kwargs)
     if dataset_name == "FFHQ_256":
-        return WEDPGCCPIDataset(wed_root="./data/FFHQ_256", **kwargs)
-    raise ValueError(f"Unsupported foundation PG/CCPi dataset: {dataset_name}")
+        return WEDOracleDataset(wed_root="./data/FFHQ_256", **kwargs)
+    raise ValueError(f"Unsupported dataset: {dataset_name}")
 
 
-class PGCCPiFoundationDataset(Dataset):
+class HyperDnDataset(Dataset):
     def __init__(
         self,
         *,
@@ -139,7 +139,7 @@ class PGCCPiFoundationDataset(Dataset):
         joint_condition_dropout_prob: float = 0.0,
         include_kernel_indices=None,
         exclude_kernel_indices=None,
-        max_param_dim: int = MAX_PGCCPI_PARAM_DIM,
+        max_param_dim: int = MAX_PARAM_DIM,
         # Legacy kwargs (ignored)
         curve_pairs_override: Optional[str] = None,
         curve_metric: str = "",
@@ -173,25 +173,25 @@ class PGCCPiFoundationDataset(Dataset):
         self.observation_meta_dropout_prob = float(max(0.0, observation_meta_dropout_prob))
         self.joint_condition_dropout_prob = float(max(0.0, joint_condition_dropout_prob))
         self.regularizer_names = list(getattr(self.base_dataset, "record_regularizers", [str(self.base_dataset.regularizer).upper()]))
-        self.data_term_names = list(getattr(self.base_dataset, "record_data_terms", [normalize_pgccpi_data_term_name(getattr(self.base_dataset, "data_term", "NLL"))]))
+        self.data_term_names = list(getattr(self.base_dataset, "record_data_terms", [normalize_data_term_name(getattr(self.base_dataset, "data_term", "NLL"))]))
         resolved_noise_models = list(
             getattr(
                 self.base_dataset,
                 "record_noise_models",
-                [normalize_pgccpi_noise_model_name(getattr(self.base_dataset, "noise_model", "UNKNOWN"))],
+                [normalize_noise_model_name(getattr(self.base_dataset, "noise_model", "UNKNOWN"))],
             )
         )
-        self.operator_kind_names = list(getattr(self.base_dataset, "record_operator_kinds", [normalize_pgccpi_operator_name(getattr(self.base_dataset, "operator_kind", "KNOWN_PSF_DEBLUR"))]))
+        self.operator_kind_names = list(getattr(self.base_dataset, "record_operator_kinds", [normalize_operator_name(getattr(self.base_dataset, "operator_kind", "KNOWN_PSF_DEBLUR"))]))
         self.regularizer = str(self.regularizer_names[0]).upper()
-        self.regularizer_id = int(pgccpi_regularizer_id(self.regularizer)) if len(self.regularizer_names) == 1 else -1
+        self.regularizer_id = int(regularizer_to_id(self.regularizer)) if len(self.regularizer_names) == 1 else -1
         self.data_term = str(self.data_term_names[0]).upper()
-        self.data_term_id = int(pgccpi_data_term_id(self.data_term)) if len(self.data_term_names) == 1 else -1
+        self.data_term_id = int(data_term_to_id(self.data_term)) if len(self.data_term_names) == 1 else -1
         self.noise_model = str(resolved_noise_models[0]).upper()
         self.operator_kind = str(self.operator_kind_names[0]).upper()
-        self.operator_id = int(pgccpi_operator_id(self.operator_kind)) if len(self.operator_kind_names) == 1 else -1
-        self.noise_attribute_names = list(PGCCPI_NOISE_ATTRIBUTE_NAMES)
+        self.operator_id = int(operator_to_id(self.operator_kind)) if len(self.operator_kind_names) == 1 else -1
+        self.noise_attribute_names = list(NOISE_ATTRIBUTE_NAMES)
         self.noise_attribute_dim = int(len(self.noise_attribute_names))
-        self.observation_meta_names = list(PGCCPI_OBSERVATION_META_NAMES)
+        self.observation_meta_names = list(OBSERVATION_META_NAMES)
         self.observation_meta_dim = int(len(self.observation_meta_names))
         self.target_names = list(getattr(self.base_dataset, "target_names", []))
         self.target_dim = int(getattr(self.base_dataset, "target_dim", self.max_param_dim))
@@ -210,10 +210,10 @@ class PGCCPiFoundationDataset(Dataset):
         usable = predictions[..., : self.target_dim]
         if len(self.regularizer_names) > 1 or len(self.data_term_names) > 1:
             raise ValueError(
-                "decode_param_predictions is ambiguous for mixed-family foundation datasets. "
-                "Use decode_mixed_pgccpi_targets with per-sample regularizer/data-term ids."
+                "decode_param_predictions is ambiguous for mixed-family datasets. "
+                "Use decode_mixed_targets with per-sample regularizer/data-term ids."
             )
-        return decode_pgccpi_target_tensor(usable, self.regularizer, self.data_term)
+        return decode_target_tensor(usable, self.regularizer, self.data_term)
 
     def __getitem__(self, index: int) -> Dict[str, Any]:
         base_items = self.base_dataset[int(index)]
@@ -223,24 +223,24 @@ class PGCCPiFoundationDataset(Dataset):
             noisy_tensor, target_tensor, best_score_tensor, clean_tensor, noisy_raw_tensor = base_items
         base_record = self.base_dataset.records[int(index)]
         task_key = str(base_record["task_key"])
-        padded_target, target_mask = pad_pgccpi_target_vector(target_tensor, pad_to=self.max_param_dim)
-        regularizer_name = normalize_pgccpi_regularizer_name(base_record.get("regularizer", self.regularizer))
+        padded_target, target_mask = pad_target_vector(target_tensor, pad_to=self.max_param_dim)
+        regularizer_name = normalize_regularizer_name(base_record.get("regularizer", self.regularizer))
         # Retain the historical padded second DiffPIR loss slot.
-        data_term_name = normalize_pgccpi_data_term_name(base_record.get("data_term", self.data_term))
-        noise_model_name = normalize_pgccpi_noise_model_name(base_record.get("noise_model", self.noise_model))
-        operator_kind_name = normalize_pgccpi_operator_name(base_record.get("operator_kind", self.operator_kind))
-        regularizer_id = int(pgccpi_regularizer_id(regularizer_name))
-        data_term_id = int(pgccpi_data_term_id(data_term_name))
-        operator_id = int(pgccpi_operator_id(operator_kind_name))
+        data_term_name = normalize_data_term_name(base_record.get("data_term", self.data_term))
+        noise_model_name = normalize_noise_model_name(base_record.get("noise_model", self.noise_model))
+        operator_kind_name = normalize_operator_name(base_record.get("operator_kind", self.operator_kind))
+        regularizer_id = int(regularizer_to_id(regularizer_name))
+        data_term_id = int(data_term_to_id(data_term_name))
+        operator_id = int(operator_to_id(operator_kind_name))
         noise_params_raw = base_record.get("noise_params", {})
         noise_params = dict(noise_params_raw) if isinstance(noise_params_raw, dict) else {}
         observation_meta_applicable = _observation_meta_applicable(noise_model_name)
-        observation_meta = _build_foundation_observation_meta(
+        observation_meta = _build_observation_meta(
             base_record,
             applicable=observation_meta_applicable,
             observed=observation_meta_applicable,
         )
-        noise_attributes = encode_pgccpi_noise_attributes(
+        noise_attributes = encode_noise_attributes(
             noise_model_name,
             channel_independent=noise_params.get("channel_independent", None),
         )
@@ -256,7 +256,7 @@ class PGCCPiFoundationDataset(Dataset):
                 and self.observation_meta_dropout_prob > 0.0
                 and float(np.random.random()) < self.observation_meta_dropout_prob
             ):
-                observation_meta = _build_foundation_observation_meta(
+                observation_meta = _build_observation_meta(
                     base_record,
                     applicable=True,
                     observed=False,
@@ -285,19 +285,19 @@ class PGCCPiFoundationDataset(Dataset):
         }
 
 
-def foundation_collate_fn(batch: List[Dict[str, Any]]) -> Dict[str, Any]:
+def hyperdn_collate_fn(batch: List[Dict[str, Any]]) -> Dict[str, Any]:
     if not batch:
-        raise ValueError("foundation_collate_fn received an empty batch.")
+        raise ValueError("hyperdn_collate_fn received an empty batch.")
     reference_noise_attribute_names = list(batch[0]["noise_attribute_names"])
     reference_observation_meta_names = list(batch[0]["observation_meta_names"])
     for item in batch[1:]:
         if list(item["noise_attribute_names"]) != reference_noise_attribute_names:
             raise ValueError(
-                "foundation_collate_fn requires a consistent noise_attribute_names ordering within each batch."
+                "hyperdn_collate_fn requires a consistent noise_attribute_names ordering within each batch."
             )
         if list(item["observation_meta_names"]) != reference_observation_meta_names:
             raise ValueError(
-                "foundation_collate_fn requires a consistent observation_meta_names ordering within each batch."
+                "hyperdn_collate_fn requires a consistent observation_meta_names ordering within each batch."
             )
 
     return {

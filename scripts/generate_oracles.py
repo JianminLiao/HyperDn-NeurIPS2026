@@ -25,9 +25,14 @@ def commands_for(bank, output_root):
     env["RUN_NAME"] = output.stem
     command = [sys.executable, str(ROOT / bank["generator"])]
     if bank["group"] == "cbm3d":
-        env["RUN_NAME"] = output.stem.removesuffix("_merged")
+        # The CBM3D search writes <RUN_NAME>_merged.pt; main() moves it to the documented output path.
         return [(command, {**env, "RUN_MODE": mode}) for mode in ("search", "merge")]
     return [(command, env)]
+
+
+def cbm3d_result(env):
+    merged = Path(env["SAVE_DIR"]) / f"{env['RUN_NAME']}_merged.pt"
+    return merged, merged.with_name(merged.stem + "_summary.json")
 
 
 def main():
@@ -52,6 +57,14 @@ def main():
             if args.execute:
                 Path(env["SAVE_DIR"]).mkdir(parents=True, exist_ok=True)
                 subprocess.run(command, cwd=ROOT, env={**os.environ, **env}, check=True)
+        if bank["group"] == "cbm3d":
+            merged, summary = cbm3d_result(env)
+            output = Path(env["SAVE_DIR"]) / f"{env['RUN_NAME']}.pt"
+            print(shlex.join(["mv", str(merged), str(output)]), flush=True)
+            if args.execute:
+                os.replace(merged, output)
+                if summary.exists():
+                    os.replace(summary, output.with_name(output.stem + "_summary.json"))
     if not args.execute:
         print("\nDry run only. Add --execute to launch searches after preparing the data and solver dependencies.")
 

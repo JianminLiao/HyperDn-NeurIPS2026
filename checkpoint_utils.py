@@ -4,9 +4,9 @@ from typing import Any, Dict
 
 import torch
 
-from restoration.pgccpi_observation_encoding import (
-    PGCCPI_NOISE_ATTRIBUTE_NAMES,
-    PGCCPI_OBSERVATION_META_NAMES,
+from restoration.observation_encoding import (
+    NOISE_ATTRIBUTE_NAMES,
+    OBSERVATION_META_NAMES,
 )
 
 
@@ -43,7 +43,7 @@ def extract_backbone_state_dict(payload: Dict[str, Any]) -> Dict[str, Any]:
 def _remap_backbone_keys(src_state: Dict[str, Any], target_keys: set) -> Dict[str, Any]:
     """Remap backbone keys between naming conventions.
 
-    Foundation model uses sequential indexing: stem.0., stages.0., stages.1.
+    HyperDn uses sequential indexing: stem.0., stages.0., stages.1.
     Ablation model uses underscore indexing: stem_0., stages_0., stages_1.
     This function tries both directions to find matches.
     """
@@ -90,16 +90,16 @@ def load_model_checkpoint_forgiving(
     """
     contract = payload_or_state.get("encoding_contract", {})
     if contract:
-        from restoration.pgccpi_param_encoding import (
-            PGCCPI_REGULARIZER_ORDER, PGCCPI_PARAM_ROLE_ORDER,
-            PGCCPI_PARAM_SCALE_ORDER, PGCCPI_PARAM_FAMILY_ORDER,
+        from restoration.param_encoding import (
+            REGULARIZER_ORDER, PARAM_ROLE_ORDER,
+            PARAM_SCALE_ORDER, PARAM_FAMILY_ORDER,
         )
-        from restoration.pgccpi_observation_encoding import PGCCPI_DATA_TERM_ORDER
-        current = {"regularizer_order": PGCCPI_REGULARIZER_ORDER,
-                   "data_term_order": PGCCPI_DATA_TERM_ORDER,
-                   "param_role_order": PGCCPI_PARAM_ROLE_ORDER,
-                   "param_scale_order": PGCCPI_PARAM_SCALE_ORDER,
-                   "param_family_order": PGCCPI_PARAM_FAMILY_ORDER}
+        from restoration.observation_encoding import DATA_TERM_ORDER
+        current = {"regularizer_order": REGULARIZER_ORDER,
+                   "data_term_order": DATA_TERM_ORDER,
+                   "param_role_order": PARAM_ROLE_ORDER,
+                   "param_scale_order": PARAM_SCALE_ORDER,
+                   "param_family_order": PARAM_FAMILY_ORDER}
         for field, names in current.items():
             if field in contract and list(contract[field]) != list(names[:len(contract[field])]):
                 raise RuntimeError(f"Checkpoint vocabulary is not a compatible prefix: {field}")
@@ -137,15 +137,15 @@ def _normalize_name_sequence(payload: Dict[str, Any], field_name: str):
     if values is None:
         return None
     if not isinstance(values, (list, tuple)):
-        raise ValueError(f"{field_name} must be list-like in a foundation checkpoint, got {type(values)!r}.")
+        raise ValueError(f"{field_name} must be list-like in a HyperDn checkpoint, got {type(values)!r}.")
     return [str(value) for value in values]
 
 
-def validate_foundation_observation_contract(payload: Dict[str, Any], *, path: str = "") -> None:
+def validate_observation_contract(payload: Dict[str, Any], *, path: str = "") -> None:
     checkpoint_label = path or "<checkpoint>"
     expected_fields = {
-        "noise_attribute_names": [str(name) for name in PGCCPI_NOISE_ATTRIBUTE_NAMES],
-        "observation_meta_names": [str(name) for name in PGCCPI_OBSERVATION_META_NAMES],
+        "noise_attribute_names": [str(name) for name in NOISE_ATTRIBUTE_NAMES],
+        "observation_meta_names": [str(name) for name in OBSERVATION_META_NAMES],
     }
     for field_name, expected_names in expected_fields.items():
         actual_names = _normalize_name_sequence(payload, field_name)
@@ -153,7 +153,7 @@ def validate_foundation_observation_contract(payload: Dict[str, Any], *, path: s
             continue
         if list(actual_names) != list(expected_names):
             raise ValueError(
-                f"Foundation checkpoint {checkpoint_label} is incompatible with the current observation contract: "
+                f"Checkpoint {checkpoint_label} is incompatible with the current observation contract: "
                 f"{field_name}={actual_names}, expected={expected_names}. "
                 "Retrain the checkpoint or migrate it explicitly."
             )

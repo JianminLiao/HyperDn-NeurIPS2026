@@ -65,11 +65,11 @@ class AfkhamCNN(nn.Module):
         return self.head(x)
 
 
-class AfkhamCNNFoundationWrapper(nn.Module):
-    """Wrap AfkhamCNN with PGCCPiFoundationModel-compatible forward signature.
+class AfkhamCNNWrapper(nn.Module):
+    """Wrap AfkhamCNN with HyperDnModel-compatible forward signature.
 
     Accepts (and ignores) regularizer_ids / data_term_ids / noise_attributes /
-    observation_meta so that evaluate_pgccpi_foundation.py can use it unchanged.
+    observation_meta so that evaluate_hyperdn.py can use it unchanged.
     Output is zero-padded to max_param_dim.
     """
 

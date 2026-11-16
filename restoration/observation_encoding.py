@@ -5,19 +5,19 @@ from typing import Dict, Mapping
 import numpy as np
 
 
-PGCCPI_DATA_TERM_ORDER = ("NLL", "L2", "HUBER")
-PGCCPI_DATA_TERM_TO_ID = {
-    name: index for index, name in enumerate(PGCCPI_DATA_TERM_ORDER)
+DATA_TERM_ORDER = ("NLL", "L2", "HUBER")
+DATA_TERM_TO_ID = {
+    name: index for index, name in enumerate(DATA_TERM_ORDER)
 }
-PGCCPI_NOISE_MODEL_ORDER = ("UNKNOWN", "GAUSSIAN", "POISSON", "POISSON_GAUSSIAN", "IMPULSE", "IMPULSE_GAUSSIAN")
-PGCCPI_NOISE_MODEL_TO_ID = {
-    name: index for index, name in enumerate(PGCCPI_NOISE_MODEL_ORDER)
+NOISE_MODEL_ORDER = ("UNKNOWN", "GAUSSIAN", "POISSON", "POISSON_GAUSSIAN", "IMPULSE", "IMPULSE_GAUSSIAN")
+NOISE_MODEL_TO_ID = {
+    name: index for index, name in enumerate(NOISE_MODEL_ORDER)
 }
-PGCCPI_OPERATOR_ORDER = ("KNOWN_PSF_DEBLUR", "IDENTITY_DENOISE", "SUPER_RESOLUTION")
-PGCCPI_OPERATOR_TO_ID = {
-    name: index for index, name in enumerate(PGCCPI_OPERATOR_ORDER)
+OPERATOR_ORDER = ("KNOWN_PSF_DEBLUR", "IDENTITY_DENOISE", "SUPER_RESOLUTION")
+OPERATOR_TO_ID = {
+    name: index for index, name in enumerate(OPERATOR_ORDER)
 }
-PGCCPI_NOISE_ATTRIBUTE_NAMES = (
+NOISE_ATTRIBUTE_NAMES = (
     "noise_is_unknown",
     "has_gaussian",
     "has_poisson",
@@ -25,7 +25,7 @@ PGCCPI_NOISE_ATTRIBUTE_NAMES = (
     "impulse_is_bw",
     "impulse_is_rgb",
 )
-PGCCPI_OBSERVATION_META_NAMES = (
+OBSERVATION_META_NAMES = (
     "meta_applicable",
     "meta_observed",
     "log10_alpha",
@@ -44,14 +44,14 @@ def _normalize_key(
     if aliases is not None:
         key = str(aliases.get(key, key))
     if key not in valid_map:
-        raise ValueError(f"Unsupported PG/CCPi {label}: {value}. Expected one of {list(valid_map)}.")
+        raise ValueError(f"Unsupported {label}: {value}. Expected one of {list(valid_map)}.")
     return key
 
 
-def normalize_pgccpi_data_term_name(data_term: str) -> str:
+def normalize_data_term_name(data_term: str) -> str:
     return _normalize_key(
         data_term,
-        PGCCPI_DATA_TERM_TO_ID,
+        DATA_TERM_TO_ID,
         "data term",
         aliases={
             "POISSON_GAUSSIAN": "NLL",
@@ -64,14 +64,14 @@ def normalize_pgccpi_data_term_name(data_term: str) -> str:
     )
 
 
-def pgccpi_data_term_id(data_term: str) -> int:
-    return int(PGCCPI_DATA_TERM_TO_ID[normalize_pgccpi_data_term_name(data_term)])
+def data_term_to_id(data_term: str) -> int:
+    return int(DATA_TERM_TO_ID[normalize_data_term_name(data_term)])
 
 
-def normalize_pgccpi_noise_model_name(noise_model: str) -> str:
+def normalize_noise_model_name(noise_model: str) -> str:
     return _normalize_key(
         noise_model,
-        PGCCPI_NOISE_MODEL_TO_ID,
+        NOISE_MODEL_TO_ID,
         "noise model",
         aliases={
             "NONE": "UNKNOWN",
@@ -91,17 +91,17 @@ def normalize_pgccpi_noise_model_name(noise_model: str) -> str:
     )
 
 
-def pgccpi_noise_model_id(noise_model: str) -> int:
-    return int(PGCCPI_NOISE_MODEL_TO_ID[normalize_pgccpi_noise_model_name(noise_model)])
+def noise_model_to_id(noise_model: str) -> int:
+    return int(NOISE_MODEL_TO_ID[normalize_noise_model_name(noise_model)])
 
 
-def encode_pgccpi_noise_attributes(
+def encode_noise_attributes(
     noise_model: str,
     *,
     channel_independent: float | bool | None = None,
 ) -> np.ndarray:
     raw_key = str(noise_model).strip().upper().replace("-", "_").replace(" ", "_")
-    model_key = normalize_pgccpi_noise_model_name(noise_model)
+    model_key = normalize_noise_model_name(noise_model)
     has_gaussian = model_key in {"GAUSSIAN", "POISSON_GAUSSIAN", "IMPULSE_GAUSSIAN"}
     has_poisson = model_key in {"POISSON", "POISSON_GAUSSIAN"}
     has_impulse = model_key in {"IMPULSE", "IMPULSE_GAUSSIAN"}
@@ -133,10 +133,10 @@ def encode_pgccpi_noise_attributes(
     )
 
 
-def normalize_pgccpi_operator_name(operator_kind: str) -> str:
+def normalize_operator_name(operator_kind: str) -> str:
     return _normalize_key(
         operator_kind,
-        PGCCPI_OPERATOR_TO_ID,
+        OPERATOR_TO_ID,
         "operator kind",
         aliases={
             "IDENTITY": "IDENTITY_DENOISE",
@@ -150,11 +150,11 @@ def normalize_pgccpi_operator_name(operator_kind: str) -> str:
     )
 
 
-def pgccpi_operator_id(operator_kind: str) -> int:
-    return int(PGCCPI_OPERATOR_TO_ID[normalize_pgccpi_operator_name(operator_kind)])
+def operator_to_id(operator_kind: str) -> int:
+    return int(OPERATOR_TO_ID[normalize_operator_name(operator_kind)])
 
 
-def encode_pgccpi_observation_metadata(
+def encode_observation_metadata(
     *,
     alpha: float | None = None,
     sigma_read: float | None = None,

@@ -1,6 +1,6 @@
 """Train the per-configuration Afkham CNN on a specified oracle bank.
 
-Use run_expc_fullcorpus_kendall.py or run_expc_cbm3d_unknown.py for the
+Use fewshot_diffpir.py or fewshot_cbm3d.py for the
 public few-shot experiments. Direct use requires TRAIN_GT_PATH.
 """
 from __future__ import annotations
@@ -18,7 +18,7 @@ from torch.utils.data import DataLoader, Subset
 from tqdm import tqdm
 
 from afkham_baseline import AfkhamCNN
-from dataset import STL10PGCCPIDataset, WEDPGCCPIDataset
+from dataset import STL10OracleDataset, WEDOracleDataset
 
 
 class Config:
@@ -50,7 +50,7 @@ def _apply_env():
     Config.DATASET = _parse_env("DATASET", Config.DATASET, str)
     Config.TRAIN_GT_PATH = os.getenv("TRAIN_GT_PATH", Config.TRAIN_GT_PATH).strip()
     if not Config.TRAIN_GT_PATH:
-        raise ValueError("Set TRAIN_GT_PATH, or use run_expc_fullcorpus_kendall.py / run_expc_cbm3d_unknown.py.")
+        raise ValueError("Set TRAIN_GT_PATH, or use fewshot_diffpir.py / fewshot_cbm3d.py.")
     Config.MAX_TRAIN_SAMPLES = _parse_env("MAX_TRAIN_SAMPLES", Config.MAX_TRAIN_SAMPLES, int)
     Config.SEED = _parse_env("SEED", Config.SEED, int)
     Config.EPOCHS = _parse_env("EPOCHS", Config.EPOCHS, int)
@@ -76,9 +76,9 @@ def _build_dataset(ground_truth_path: str, dataset_name: str, apply_augmentation
     kwargs = dict(ground_truth_path=ground_truth_path, metric="PSNR", split="train",
                   apply_augmentations=apply_augmentations, resample_noise_realization=False)
     if dataset_name == "STL10":
-        return STL10PGCCPIDataset(stl10_root="./data", **kwargs)
+        return STL10OracleDataset(stl10_root="./data", **kwargs)
     if dataset_name == "WED_256":
-        return WEDPGCCPIDataset(wed_root="./data/WED_256", **kwargs)
+        return WEDOracleDataset(wed_root="./data/WED_256", **kwargs)
     raise ValueError(f"Unsupported dataset: {dataset_name}")
 
 

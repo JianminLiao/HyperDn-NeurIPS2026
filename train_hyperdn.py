@@ -18,25 +18,25 @@ import torch.optim as optim
 from torch.utils.data import ConcatDataset, DataLoader, Dataset, Subset
 from tqdm import tqdm
 
-from pgccpi_checkpoint_utils import (
+from checkpoint_utils import (
     load_backbone_checkpoint,
     load_checkpoint_payload,
     load_model_checkpoint_forgiving,
-    validate_foundation_observation_contract,
+    validate_observation_contract,
 )
-from pgccpi_foundation_dataset import PGCCPiFoundationDataset, foundation_collate_fn
-from pgccpi_foundation_model import PGCCPiFoundationModel
-from restoration.pgccpi_param_encoding import PGCCPI_PARAM_ROLE_ORDER
+from hyperdn_dataset import HyperDnDataset, hyperdn_collate_fn
+from hyperdn_model import HyperDnModel
+from restoration.param_encoding import PARAM_ROLE_ORDER
 from summary_writer import SummaryWriter
-from restoration.pgccpi_observation_encoding import (
-    PGCCPI_DATA_TERM_ORDER,
+from restoration.observation_encoding import (
+    DATA_TERM_ORDER,
 )
-from restoration.pgccpi_param_encoding import (
-    MAX_PGCCPI_PARAM_DIM,
-    PGCCPI_PARAM_FAMILY_ORDER,
-    PGCCPI_PARAM_SCALE_ORDER,
-    PGCCPI_REGULARIZER_ORDER,
-    decode_mixed_pgccpi_targets,
+from restoration.param_encoding import (
+    MAX_PARAM_DIM,
+    PARAM_FAMILY_ORDER,
+    PARAM_SCALE_ORDER,
+    REGULARIZER_ORDER,
+    decode_mixed_targets,
 )
 
 
@@ -224,15 +224,11 @@ def _sanitize_tag(value: str) -> str:
     return "".join(ch if ch.isalnum() or ch in ("-", "_", ".") else "_" for ch in str(value))
 
 
-def find_latest_pgccpi_gt(dataset: str, split: str, regularizer_hint: str = "") -> str:
-    regularizer_token = f"{regularizer_hint.lower()}_" if str(regularizer_hint).strip() else "*"
-    pattern = os.path.join("dataset_labels", f"pgccpi*_{regularizer_token}{dataset}_{split}_*.pt")
-    candidates = glob(pattern)
-    if not candidates:
-        raise FileNotFoundError(f"No PG/CCPi GT matched pattern: {pattern}")
-    latest = max(candidates, key=os.path.getmtime)
-    print(f">> Auto-detected latest GT: {latest}")
-    return latest
+def find_latest_gt(dataset: str, split: str, regularizer_hint: str = "") -> str:
+    raise ValueError(
+        "Set TRAIN_SOURCES to the label banks to train on; pretrain_source.py and the "
+        "few-shot scripts set it for you."
+    )
 
 
 def _parse_source_specs(raw: str, default_dataset: str) -> List[SourceSpec]:
@@ -271,7 +267,7 @@ def _resolve_train_sources() -> List[SourceSpec]:
     return [
         SourceSpec(
             dataset_name=Config.DATASET,
-            ground_truth_path=find_latest_pgccpi_gt(Config.DATASET, Config.SPLIT, Config.REGULARIZER_HINT),
+            ground_truth_path=find_latest_gt(Config.DATASET, Config.SPLIT, Config.REGULARIZER_HINT),
             split=Config.SPLIT,
         )
     ]
@@ -285,9 +281,9 @@ def _resolve_val_sources(train_sources: Sequence[SourceSpec]) -> List[SourceSpec
     return []
 
 
-def _build_dataset_from_spec(spec: SourceSpec, *, apply_augmentations: bool) -> PGCCPiFoundationDataset:
+def _build_dataset_from_spec(spec: SourceSpec, *, apply_augmentations: bool) -> HyperDnDataset:
     enable_condition_dropout = bool(apply_augmentations)
-    return PGCCPiFoundationDataset(
+    return HyperDnDataset(
         dataset_name=spec.dataset_name,
         ground_truth_path=spec.ground_truth_path,
         metric=Config.METRIC,
@@ -302,7 +298,7 @@ def _build_dataset_from_spec(spec: SourceSpec, *, apply_augmentations: bool) -> 
         noise_attribute_dropout_prob=Config.NOISE_ATTRIBUTE_DROPOUT_PROB if enable_condition_dropout else 0.0,
         observation_meta_dropout_prob=Config.OBSERVATION_META_DROPOUT_PROB if enable_condition_dropout else 0.0,
         joint_condition_dropout_prob=Config.JOINT_CONDITION_DROPOUT_PROB if enable_condition_dropout else 0.0,
-        max_param_dim=MAX_PGCCPI_PARAM_DIM,
+        max_param_dim=MAX_PARAM_DIM,
     )
 
 
@@ -343,7 +339,7 @@ def _decode_padded_params(
     regularizer_ids: torch.Tensor,
     data_term_ids: torch.Tensor,
 ) -> torch.Tensor:
-    return decode_mixed_pgccpi_targets(values, regularizer_ids, data_term_ids)
+    return decode_mixed_targets(values, regularizer_ids, data_term_ids)
 
 
 
@@ -352,7 +348,7 @@ def _maybe_override_noise_attr(tensor: torch.Tensor) -> torch.Tensor:
     with the specified vector (broadcast across the batch dim). Used by
     the compositional-encoding ablation (tab:ablation_composition). Accepts
     a comma-separated float vector whose length must match
-    `noise_attributes.shape[-1]` (6 for PG/CCPi). Empty env = no-op.
+    `noise_attributes.shape[-1]` (6 for the released configurations). Empty env = no-op.
     """
     raw = os.environ.get("OVERRIDE_NOISE_ATTR", "").strip()
     if not raw:
@@ -391,7 +387,7 @@ def _prepare_batch(batch: Dict[str, torch.Tensor], device: torch.device):
     return prepared
 
 
-def _compute_losses(model_outputs: Dict[str, torch.Tensor], batch: Dict[str, torch.Tensor], model: "PGCCPiFoundationModel"):
+def _compute_losses(model_outputs: Dict[str, torch.Tensor], batch: Dict[str, torch.Tensor], model: "HyperDnModel"):
     pred = model_outputs["param_pred"]        # [B, D]
     target = batch["target_param"]             # [B, D]
     mask = batch["target_param_mask"]           # [B, D]
@@ -448,7 +444,7 @@ def _finalize_metric_sums(metric_sums: Dict[str, float]) -> Dict[str, float]:
 
 
 def _evaluate(
-    model: PGCCPiFoundationModel,
+    model: HyperDnModel,
     loader: DataLoader,
     device: torch.device,
 ) -> Dict[str, float]:
@@ -488,7 +484,7 @@ def _group_named_parameters(module: nn.Module):
     return decay, no_decay
 
 
-def _build_llrd_optimizer(model: PGCCPiFoundationModel) -> optim.AdamW:
+def _build_llrd_optimizer(model: HyperDnModel) -> optim.AdamW:
     """Per-block layer-wise LR decay. LR = LEARNING_RATE_HEAD * LLRD_DECAY^level.
 
     Level 0:  prediction head (simple MLP or bilinear trunk + slot readout)
@@ -607,7 +603,7 @@ def _build_run_name(train_sources: Sequence[SourceSpec]) -> str:
         return _sanitize_tag(Config.RUN_NAME)
     dataset_token = _sanitize_tag("-".join(sorted({spec.dataset_name for spec in train_sources})))
     return _sanitize_tag(
-        f"pgccpi_foundation_{dataset_token}_{Config.METRIC}_{Config.BACKBONE_NAME}_{int(time.time())}"
+        f"hyperdn_{dataset_token}_{Config.METRIC}_{Config.BACKBONE_NAME}_{int(time.time())}"
     )
 
 
@@ -629,7 +625,7 @@ def _get_git_commit() -> str:
 def _save_checkpoint(
     *,
     path: str,
-    model: PGCCPiFoundationModel,
+    model: HyperDnModel,
     optimizer: optim.Optimizer,
     scheduler,
     epoch: int,
@@ -659,11 +655,11 @@ def _save_checkpoint(
         "scheduler_state_dict": scheduler.state_dict() if scheduler is not None else None,
         "git_commit": _get_git_commit(),
         "encoding_contract": {
-            "regularizer_order": list(PGCCPI_REGULARIZER_ORDER),
-            "data_term_order": list(PGCCPI_DATA_TERM_ORDER),
-            "param_role_order": list(PGCCPI_PARAM_ROLE_ORDER),
-            "param_scale_order": list(PGCCPI_PARAM_SCALE_ORDER),
-            "param_family_order": list(PGCCPI_PARAM_FAMILY_ORDER),
+            "regularizer_order": list(REGULARIZER_ORDER),
+            "data_term_order": list(DATA_TERM_ORDER),
+            "param_role_order": list(PARAM_ROLE_ORDER),
+            "param_scale_order": list(PARAM_SCALE_ORDER),
+            "param_family_order": list(PARAM_FAMILY_ORDER),
         },
     }
     # Retry on Windows OneDrive file locks — broadened to any "cannot be opened"
@@ -689,8 +685,8 @@ def _propagate_epoch_to_datasets(dataset, epoch: int) -> None:
     """Recursively call ``set_epoch`` on any wrapped dataset that exposes one.
 
     Handles arbitrary nesting of ``Subset`` and ``ConcatDataset`` so that the
-    current training epoch reaches the underlying ``PGCCPiFoundationDataset``
-    / ``_BasePGCCPIDataset`` instances, where it is mixed into the
+    current training epoch reaches the underlying ``HyperDnDataset``
+    / ``_BaseOracleDataset`` instances, where it is mixed into the
     augmentation seed so the augmentation plan varies from epoch to epoch.
     """
     if dataset is None:
@@ -732,7 +728,7 @@ class DatasetHomogeneousBatchSampler(torch.utils.data.Sampler):
 
     This allows joint training on datasets with different spatial dimensions
     (e.g. STL10 96×96 and WED_256 256×256) without cropping, because
-    ``foundation_collate_fn`` stacks tensors with ``torch.stack`` which
+    ``hyperdn_collate_fn`` stacks tensors with ``torch.stack`` which
     requires all tensors in a batch to have identical shape.
     """
 
@@ -845,7 +841,7 @@ def main():
         num_workers=Config.WORKERS,
         pin_memory=True,
         persistent_workers=(Config.WORKERS > 0),
-        collate_fn=foundation_collate_fn,
+        collate_fn=hyperdn_collate_fn,
     )
     if len(train_datasets) > 1:
         # Multi-source: use homogeneous sampler so each batch has same image size.
@@ -893,7 +889,7 @@ def main():
         )
         val_loader = DataLoader(val_dataset, batch_size=Config.BATCH_SIZE, shuffle=False, **_dl_kwargs) if val_dataset is not None else None
 
-    model = PGCCPiFoundationModel(
+    model = HyperDnModel(
         backbone_name=Config.BACKBONE_NAME,
         pretrained=Config.BACKBONE_PRETRAINED,
         stage_indices=Config.STAGE_INDICES,
@@ -902,9 +898,9 @@ def main():
         observation_embed_dim=Config.OBSERVATION_EMBED_DIM,
         slot_embed_dim=Config.SLOT_EMBED_DIM,
         bilinear_dim=Config.BILINEAR_DIM,
-        max_param_dim=MAX_PGCCPI_PARAM_DIM,
-        num_regularizers=len(PGCCPI_REGULARIZER_ORDER),
-        num_data_terms=len(PGCCPI_DATA_TERM_ORDER),
+        max_param_dim=MAX_PARAM_DIM,
+        num_regularizers=len(REGULARIZER_ORDER),
+        num_data_terms=len(DATA_TERM_ORDER),
         head_type=Config.HEAD_TYPE,
         use_simple_head=Config.USE_SIMPLE_HEAD,
         dropout_p=Config.DROPOUT,
@@ -920,7 +916,7 @@ def main():
 
     if str(Config.INIT_CHECKPOINT).strip():
         init_state = load_checkpoint_payload(Config.INIT_CHECKPOINT)
-        validate_foundation_observation_contract(init_state, path=Config.INIT_CHECKPOINT)
+        validate_observation_contract(init_state, path=Config.INIT_CHECKPOINT)
         load_result = load_model_checkpoint_forgiving(model, init_state)
         print(
             "Loaded INIT_CHECKPOINT="
@@ -965,7 +961,7 @@ def main():
     best_val_loss = float("inf")
     if str(Config.RESUME_CHECKPOINT).strip():
         resume_state = load_checkpoint_payload(Config.RESUME_CHECKPOINT)
-        validate_foundation_observation_contract(resume_state, path=Config.RESUME_CHECKPOINT)
+        validate_observation_contract(resume_state, path=Config.RESUME_CHECKPOINT)
         model.load_state_dict(resume_state["model_state_dict"])
         optimizer.load_state_dict(resume_state["optimizer_state_dict"])
         if scheduler is not None and resume_state.get("scheduler_state_dict") is not None:
@@ -1045,7 +1041,7 @@ def main():
             writer.add_scalar(f"train/{key}", value, epoch)
         writer.add_scalar("train/lr_level0", optimizer.param_groups[-1]["lr"], epoch)
         writer.add_scalar("train/lr_stem", optimizer.param_groups[0]["lr"], epoch)
-        for role_idx, role_name in enumerate(PGCCPI_PARAM_ROLE_ORDER):
+        for role_idx, role_name in enumerate(PARAM_ROLE_ORDER):
             if role_name != "pad":
                 sigma2 = torch.exp(model.role_log_var[role_idx]).item()
                 writer.add_scalar(f"uncertainty/{role_name}_sigma2", sigma2, epoch)

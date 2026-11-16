@@ -1,4 +1,4 @@
-"""CPU checks for the training objective, recorded protocols and strict loading."""
+"""CPU checks for the training loss, the recorded few-shot protocol and checkpoint loading."""
 import copy
 import json
 import os
@@ -11,12 +11,12 @@ import numpy as np
 from PIL import Image
 import torch
 
-from fewshot_protocol import afkham_env, foundation_env, protocol_summary, write_reports
-from pgccpi_checkpoint_utils import load_checkpoint_payload, load_model_checkpoint_forgiving
-from pgccpi_foundation_dataset import PGCCPiFoundationDataset, foundation_collate_fn
-from run_diffpir_transfer_experiments import preserve_contract, environment_contract, train_run, eval_run
-from train_pgccpi_foundation import _compute_losses, _subset_indices, _build_llrd_optimizer, DatasetHomogeneousBatchSampler
-from evaluate_pgccpi_foundation import _build_model_from_checkpoint
+from fewshot_protocol import afkham_env, hyperdn_env, protocol_summary, write_reports
+from checkpoint_utils import load_checkpoint_payload, load_model_checkpoint_forgiving
+from hyperdn_dataset import HyperDnDataset, hyperdn_collate_fn
+from experiment_runner import preserve_contract, environment_contract, train_run, eval_run
+from train_hyperdn import _compute_losses, _subset_indices, _build_llrd_optimizer, DatasetHomogeneousBatchSampler
+from evaluate_hyperdn import _build_model_from_checkpoint
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -25,7 +25,7 @@ class TrainingContractTests(unittest.TestCase):
     def test_baseline_effective_schedule(self):
         self.assertEqual(afkham_env(2, 43)["EPOCHS"], "500")
         self.assertEqual(afkham_env(64, 43)["EPOCHS"], "100")
-        self.assertEqual(foundation_env(2, 43)["EPOCHS"], "150")
+        self.assertEqual(hyperdn_env(2, 43)["EPOCHS"], "150")
         for target in ["diffpir", "cbm3d"]:
             self.assertTrue(protocol_summary(target)["afkham_cuda_amp"])
             self.assertEqual(protocol_summary(target)["afkham_warmup_epochs"], 1)
@@ -78,7 +78,7 @@ class TrainingContractTests(unittest.TestCase):
                 raise RuntimeError("simulated interrupted source training")
             kwargs = dict(train_sources=[{"dataset_name": "WED_256", "ground_truth_path": str(bank), "split": "train"}],
                           run_name="partial", checkpoint_dir=directory, runs_dir=directory / "runs", extra_env={"EPOCHS": "80"})
-            with patch("run_diffpir_transfer_experiments.run_with_log", side_effect=interrupted):
+            with patch("experiment_runner.run_with_log", side_effect=interrupted):
                 with self.assertRaisesRegex(RuntimeError, "interrupted"):
                     train_run(**kwargs)
                 with self.assertRaisesRegex(RuntimeError, "partial best"):
@@ -109,9 +109,9 @@ class TrainingContractTests(unittest.TestCase):
             }]}, bank)
             try:
                 os.chdir(directory)
-                data = PGCCPiFoundationDataset(dataset_name="WED_256", ground_truth_path=str(bank))
+                data = HyperDnDataset(dataset_name="WED_256", ground_truth_path=str(bank))
                 first = data[0]
-                batch = foundation_collate_fn([first, first])
+                batch = hyperdn_collate_fn([first, first])
             finally:
                 os.chdir(original_cwd)
         self.assertEqual(batch["target_param_mask"][0, :2].tolist(), [1.0, 1.0])

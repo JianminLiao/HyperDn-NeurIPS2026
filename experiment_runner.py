@@ -82,7 +82,7 @@ def train_run(
     for key, value in extra_env.items():
         env[str(key)] = str(value)
     contract = {
-        "entry": "train_pgccpi_foundation.py", "train_sources": source_signatures(train_sources),
+        "entry": "train_hyperdn.py", "train_sources": source_signatures(train_sources),
         "val_sources": source_signatures(val_sources or []), "env": environment_contract(env),
         "implementation": implementation_signature(),
     }
@@ -97,7 +97,7 @@ def train_run(
         print(f"[reuse verified completed run] {best_path}")
         return best_path
     log_path = checkpoint_dir / f"{run_name}.log"
-    run_with_log([str(PYTHON), "-u", "train_pgccpi_foundation.py"], env=env, log_path=log_path)
+    run_with_log([str(PYTHON), "-u", "train_hyperdn.py"], env=env, log_path=log_path)
     if not best_path.exists():
         raise FileNotFoundError(f"Expected best checkpoint at {best_path}")
     complete_path.write_text(json.dumps({"epochs": int(extra_env["EPOCHS"]),
@@ -141,7 +141,7 @@ def eval_run(
     if existing:
         return find_single_file(eval_dir, "_summary.json")
     log_path = eval_dir / "eval.log"
-    run_with_log([str(PYTHON), "-u", "evaluate_pgccpi_foundation.py"], env=env, log_path=log_path)
+    run_with_log([str(PYTHON), "-u", "evaluate_hyperdn.py"], env=env, log_path=log_path)
     return find_single_file(eval_dir, "_summary.json")
 
 
@@ -211,10 +211,10 @@ def source_signatures(sources: List[Dict[str, str]]) -> List[Dict[str, Any]]:
 
 
 def implementation_signature() -> Dict[str, Any]:
-    names = ["train_pgccpi_foundation.py", "train_afkham_baseline.py", "dataset.py",
-             "pgccpi_foundation_dataset.py", "pgccpi_foundation_model.py", "pgccpi_checkpoint_utils.py",
-             "evaluate_pgccpi_foundation.py", "fewshot_protocol.py", "run_diffpir_transfer_experiments.py",
-             "afkham_baseline.py", "create_imagenet_only_foundation_checkpoint.py"]
+    names = ["train_hyperdn.py", "train_afkham_baseline.py", "dataset.py",
+             "hyperdn_dataset.py", "hyperdn_model.py", "checkpoint_utils.py",
+             "evaluate_hyperdn.py", "fewshot_protocol.py", "experiment_runner.py",
+             "afkham_baseline.py", "create_imagenet_init_checkpoint.py"]
     names += [str(path.relative_to(ROOT)) for path in sorted((ROOT / "restoration").glob("*.py"))]
     versions = {}
     for package in ["torch", "torchvision", "timm", "numpy", "scipy", "bm3d", "scikit-image"]:
